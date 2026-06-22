@@ -30,7 +30,7 @@ const TURN_SPEED := 10.0      # how fast the body faces its travel direction
 const ARENA := 60.0          # half-extent of the walled flat ground
 
 # ---- selfcheck ----
-const SELFCHECK_SECONDS := 45.0
+const SELFCHECK_SECONDS := 60.0
 const CAPTURE_INTERVAL := 1.5
 
 var mode := "play"
@@ -78,6 +78,24 @@ var cam_yaw := 0.0
 var cam_pitch := -0.12
 var gun_player: AudioStreamPlayer
 
+# ---- enter/exit car verb ----
+const CAR_ENGINE := 3400.0
+const CAR_BRAKE := 40.0
+const CAR_MAX_STEER := 0.5
+const CAR_STEER_SPEED := 5.0
+const CAR_MASS := 1300.0
+const CAR_WHEEL_FRICTION := 4.0
+const CAR_SIZE := Vector3(2.0, 1.0, 4.4)
+const ENTER_RADIUS := 3.6
+var car: VehicleBody3D
+var car_start := Vector3(16, 0.7, 4)
+var car_steer := 0.0
+var control_mode := "foot"           # "foot" or "drive"
+var entered_car := false
+var exited_car := false
+var car_distance := 0.0
+var car_prev_pos := Vector3.ZERO
+
 # telemetry / state
 var sim_time := 0.0
 var next_capture := 0.0
@@ -117,6 +135,7 @@ func _ready() -> void:
 	_build_skyline()
 	_build_obstacles()
 	_build_targets()
+	_build_car()
 	_build_player()
 	_build_camera()
 	_build_hud()
@@ -131,10 +150,11 @@ func _ready() -> void:
 		Vector3(-30, 0, 30), Vector3(-30, 0, -30),
 		Vector3(0, 0, 0),
 	]
-	bot = FootBot.new(waypoints, target_pos)
+	bot = FootBot.new(waypoints, target_pos, car_start)
 
 	start_pos = player.global_position
 	prev_pos = start_pos
+	car_prev_pos = car.global_position
 
 # ----------------------------------------------------------------- world build
 func _build_environment() -> void:
@@ -327,6 +347,62 @@ func _build_targets() -> void:
 		target_alive.append(true)
 		target_pos.append(p)
 
+func _build_car() -> void:
+	car = VehicleBody3D.new()
+	car.mass = CAR_MASS
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = CAR_SIZE
+	col.shape = box
+	col.position.y = CAR_SIZE.y * 0.5
+	car.add_child(col)
+	var mesh := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(CAR_SIZE.x, CAR_SIZE.y - 0.1, CAR_SIZE.z)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.16, 0.43)            # player magenta (vs cyan cops)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.16, 0.43)
+	mat.emission_energy_multiplier = 0.8
+	mesh.material_override = mat
+	mesh.position.y = CAR_SIZE.y * 0.5
+	car.add_child(mesh)
+	# headlight nose so heading reads
+	var nose := MeshInstance3D.new()
+	var nb := BoxMesh.new()
+	nb.size = Vector3(1.4, 0.25, 0.2)
+	var nm := StandardMaterial3D.new()
+	nm.albedo_color = Color(1, 1, 0.8)
+	nm.emission_enabled = true
+	nm.emission = Color(1, 1, 0.7)
+	nm.emission_energy_multiplier = 2.0
+	nose.material_override = nm
+	nose.mesh = nb
+	nose.position = Vector3(0, CAR_SIZE.y * 0.5, -(CAR_SIZE.z * 0.5 - 0.1))
+	car.add_child(nose)
+	var wx := CAR_SIZE.x * 0.5 - 0.15
+	var wz := CAR_SIZE.z * 0.5 - 1.0
+	_add_wheel(Vector3(-wx, 0.0, -wz), true, true)
+	_add_wheel(Vector3(wx, 0.0, -wz), true, true)
+	_add_wheel(Vector3(-wx, 0.0, wz), true, false)
+	_add_wheel(Vector3(wx, 0.0, wz), true, false)
+	car.position = car_start
+	add_child(car)
+
+func _add_wheel(pos: Vector3, traction: bool, steering: bool) -> void:
+	var w := VehicleWheel3D.new()
+	w.position = pos
+	w.use_as_traction = traction
+	w.use_as_steering = steering
+	w.wheel_radius = 0.5
+	w.wheel_rest_length = 0.3
+	w.suspension_travel = 0.35
+	w.suspension_stiffness = 30.0
+	w.damping_compression = 0.5
+	w.damping_relaxation = 0.45
+	w.wheel_friction_slip = CAR_WHEEL_FRICTION
+	car.add_child(w)
+
 func _build_player() -> void:
 	player = CharacterBody3D.new()
 	var col := CollisionShape3D.new()
@@ -416,7 +492,7 @@ func _make_gunshot() -> AudioStreamWAV:
 	return st
 
 func _setup_input() -> void:
-	for action in ["mv_fwd", "mv_back", "mv_left", "mv_right", "run", "reset", "fire"]:
+	for action in ["mv_fwd", "mv_back", "mv_left", "mv_right", "run", "reset", "fire", "enter"]:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
 	_bind("mv_fwd", [KEY_W, KEY_UP])
@@ -425,6 +501,7 @@ func _setup_input() -> void:
 	_bind("mv_right", [KEY_D, KEY_RIGHT])
 	_bind("run", [KEY_SHIFT])
 	_bind("reset", [KEY_R])
+	_bind("enter", [KEY_F])
 	var mb := InputEventMouseButton.new()
 	mb.button_index = MOUSE_BUTTON_LEFT
 	InputMap.action_add_event("fire", mb)
@@ -440,23 +517,37 @@ func _physics_process(delta: float) -> void:
 	sim_time += delta
 	var c: Dictionary
 	if mode == "play":
-		c = _player_controls()
+		c = _player_controls() if control_mode == "foot" else _car_controls_play()
+		if Input.is_action_just_pressed("enter"):
+			c["request"] = "exit" if control_mode == "drive" else "enter"
 	else:
 		c = bot.control(player.global_position, delta)
 		if c.get("reached", false):
 			waypoints_reached += 1
 		if c.get("done", false):
 			bot_done = true
-	_apply_movement(c, delta)
-	# aim: bot supplies an explicit aim vector; the player aims along facing.
-	if c.has("aim"):
-		aim_dir = c["aim"]
-	elif mode == "play":
-		aim_dir = _cam_aim()
+
+	# enter / exit the car
+	var req: String = c.get("request", "")
+	if req == "enter" and control_mode == "foot" and _near_car():
+		_enter_car()
+	elif req == "exit" and control_mode == "drive":
+		_exit_car()
+
+	if control_mode == "foot":
+		_apply_movement(c, delta)
+		# aim: bot supplies an explicit aim vector; the player aims along look/facing.
+		if c.has("aim"):
+			aim_dir = c["aim"]
+		elif mode == "play":
+			aim_dir = _cam_aim()
+		else:
+			aim_dir = Vector3(sin(player_yaw), 0, cos(player_yaw))
+		if c.get("fire", false):
+			_shoot()
 	else:
-		aim_dir = Vector3(sin(player_yaw), 0, cos(player_yaw))
-	if c.get("fire", false):
-		_shoot()
+		_drive_car(c, delta)
+
 	_update_telemetry(delta)
 	_update_heat(delta)
 	_update_pursuers(delta)
@@ -496,6 +587,52 @@ func _player_controls() -> Dictionary:
 
 func _cam_aim() -> Vector3:
 	return Vector3(sin(cam_yaw) * cos(cam_pitch), sin(cam_pitch), cos(cam_yaw) * cos(cam_pitch)).normalized()
+
+func _car_controls_play() -> Dictionary:
+	var throttle := Input.get_action_strength("mv_fwd")
+	var brake := Input.get_action_strength("mv_back")
+	var steer := Input.get_action_strength("mv_left") - Input.get_action_strength("mv_right")
+	return {"throttle": throttle, "brake": brake, "steer": steer}
+
+func _near_car() -> bool:
+	return car != null and player.global_position.distance_to(car.global_position) < ENTER_RADIUS
+
+func _enter_car() -> void:
+	control_mode = "drive"
+	entered_car = true
+	player.visible = false
+	player.set_collision_layer_value(1, false)
+	player.set_collision_mask_value(1, false)
+	player.velocity = Vector3.ZERO
+	car_prev_pos = car.global_position
+
+func _exit_car() -> void:
+	control_mode = "foot"
+	exited_car = true
+	car.engine_force = 0.0
+	car.brake = CAR_BRAKE
+	var side := car.global_transform.basis.x.normalized()
+	player.global_position = car.global_position + side * 2.4 + Vector3.UP * 0.2
+	player.visible = true
+	player.set_collision_layer_value(1, true)
+	player.set_collision_mask_value(1, true)
+	player.velocity = Vector3.ZERO
+	player_yaw = car.rotation.y
+
+func _drive_car(c: Dictionary, delta: float) -> void:
+	var throttle: float = c.get("throttle", 0.0)
+	var brake: float = c.get("brake", 0.0)
+	var steer: float = c.get("steer", 0.0)
+	var target_steer := steer * CAR_MAX_STEER
+	car_steer = move_toward(car_steer, target_steer, CAR_STEER_SPEED * CAR_MAX_STEER * delta)
+	car.steering = car_steer
+	car.engine_force = throttle * CAR_ENGINE
+	car.brake = brake * CAR_BRAKE
+	var cp := car.global_position
+	car_distance += Vector2(cp.x - car_prev_pos.x, cp.z - car_prev_pos.z).length()
+	car_prev_pos = cp
+	# the hidden player rides along so telemetry + exit placement track the car
+	player.global_position = cp
 
 func _shoot() -> void:
 	shots_fired += 1
@@ -659,6 +796,12 @@ func _process(_d: float) -> void:
 func _update_camera() -> void:
 	if cam == null or player == null:
 		return
+	if control_mode == "drive" and car != null:
+		var b := car.global_transform.basis
+		var target := car.global_position + b.z * 9.0 + Vector3.UP * 4.5
+		cam.global_position = cam.global_position.lerp(target, 0.12)
+		cam.look_at(car.global_position + Vector3.UP * 1.0 - b.z * 4.0, Vector3.UP)
+		return
 	var p := player.global_position
 	if mode == "play":
 		# mouse-look orbit: third-person behind the look direction
@@ -681,8 +824,15 @@ func _update_hud() -> void:
 	var stars := ""
 	for i in range(5):
 		stars += "*" if i < int(round(heat)) else "."
-	hud.text = "NEON DELTA — on foot\nmode:%s  speed:%.1f m/s  waypoints:%d/%d  targets:%d/%d\nHEAT [%s]  pursuers:%d" % [
-		mode, _planar_speed(), waypoints_reached, waypoints.size(),
+	var title := "NEON DELTA — DRIVING" if control_mode == "drive" else "NEON DELTA — on foot"
+	var hint := ""
+	if control_mode == "drive":
+		hint = "   [F] get out"
+	elif _near_car():
+		hint = "   [F] get in car"
+	var spd: float = car.linear_velocity.length() if (control_mode == "drive" and car != null) else _planar_speed()
+	hud.text = "%s%s\nmode:%s  speed:%.1f m/s  waypoints:%d/%d  targets:%d/%d\nHEAT [%s]  pursuers:%d" % [
+		title, hint, mode, spd, waypoints_reached, waypoints.size(),
 		targets_destroyed, target_pos.size(), stars, pursuers.size(),
 	]
 
@@ -716,6 +866,9 @@ func _finish_selfcheck() -> void:
 	checks.append(_check("Heat spawned a pursuer", pursuers_spawned > 0))
 	checks.append(_check("pursuer closed in (min dist < 32 m)", pursuer_min_dist < 32.0))
 	checks.append(_check("Heat decays when clean (final < peak)", heat < heat_peak - 0.1))
+	checks.append(_check("got in a car", entered_car))
+	checks.append(_check("drove the car (>15 m)", car_distance > 15.0))
+	checks.append(_check("got back out on foot", exited_car and control_mode == "foot"))
 	checks.append(_check("captured frames for visual review", capture_index >= 3))
 
 	var passed := true
@@ -740,6 +893,9 @@ func _finish_selfcheck() -> void:
 		"heat_final": heat,
 		"pursuers_spawned": pursuers_spawned,
 		"pursuer_min_dist": pursuer_min_dist,
+		"entered_car": entered_car,
+		"exited_car": exited_car,
+		"car_distance_m": car_distance,
 		"frames_captured": capture_index,
 		"checks": checks,
 		"passed": passed,
