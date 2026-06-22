@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# Run the autonomous self-observation pass: the bot drives the slice, the engine
-# captures frames + telemetry, invariants are asserted, and the process exits
-# non-zero if any check fails (so this works as a CI gate).
+# Run the autonomous self-observation pass and produce a clip.
 #
-# Headless-with-rendering is achieved via Xvfb + Mesa software GL, so it runs on
-# a machine with no GPU/display. Pass --headless to skip rendering entirely
-# (faster; logic/telemetry only, no screenshots).
+# The bot drives the slice under Xvfb; VizCapture (tools/viz/capture.gd) writes
+# frames; invariants are asserted; viz.py stitches frames into clip.mp4.
+# Exits non-zero if any selfcheck invariant fails (CI-gradeable).
 #
 # Usage:
-#   tools/selfcheck.sh                 # rendered, captures frames
-#   tools/selfcheck.sh --headless      # logic only, no frames
+#   tools/selfcheck.sh                 # rendered, captures frames, produces MP4
+#   tools/selfcheck.sh --headless      # logic/telemetry only, no frames or MP4
 #   SC_SECONDS=45 tools/selfcheck.sh   # bound the run length
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -20,23 +18,37 @@ if [ ! -x "$ENGINE" ]; then
 	exit 2
 fi
 
+VIZ_PY="$(dirname "$0")/../../../tools/viz/viz.py"
+FRAMES_DIR="${FRAMES_DIR:-/tmp/neon_delta_frames_$$}"
+
 export GAME_MODE=selfcheck
 export SC_SECONDS="${SC_SECONDS:-140}"
 
 if [ "${1:-}" = "--headless" ]; then
-	"$ENGINE" --headless --path .
+	status=0
+	"$ENGINE" --headless --path . || status=$?
 else
+	export VIZ_CAPTURE=1
+	export VIZ_OUT="$FRAMES_DIR"
+	export VIZ_INTERVAL="${VIZ_INTERVAL:-0.16}"
+	export VIZ_MAX="${VIZ_MAX:-180}"
+	status=0
 	LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a "$ENGINE" --path . \
-		--rendering-driver opengl3 --resolution 800x450
+		--rendering-driver opengl3 --resolution 800x450 || status=$?
+
+	echo
+	echo "--- building clip ---"
+	python3 "$VIZ_PY" clip "$FRAMES_DIR" --width 640 --fps 24
+	echo "--- contact sheet ---"
+	python3 "$VIZ_PY" contact "$FRAMES_DIR" --max 12
 fi
-status=$?
 
 USERDATA="$HOME/.local/share/godot/app_userdata/NEON DELTA — Gray Box Slice"
 echo
 echo "Artifacts:"
 echo "  report:  $USERDATA/selfcheck.json"
-echo "  frames:  $USERDATA/frames/"
+echo "  frames:  $FRAMES_DIR"
+echo "  clip:    $FRAMES_DIR/clip.mp4"
+echo "  contact: $FRAMES_DIR/contact.png"
 echo "  path:    $USERDATA/path.csv"
-echo "Top-down plot (needs Pillow):"
-echo "  python3 tools/plot_run.py \"$USERDATA\""
 exit $status

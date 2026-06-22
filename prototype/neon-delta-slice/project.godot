@@ -19,6 +19,10 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 gdscript/warnings/treat_warnings_as_errors=false
 gdscript/warnings/untyped_declaration=0
 
+[autoload]
+
+VizCapture="*res://scripts/capture.gd"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
