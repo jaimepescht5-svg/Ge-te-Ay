@@ -42,6 +42,11 @@ var selfcheck_seconds := SELFCHECK_SECONDS
 var capture_interval := CAPTURE_INTERVAL
 var capture_max := 40
 var frames_dir := "user://frames"
+
+# Resolve sibling scripts by preload (not global `class_name`) so the project
+# parses on a clean clone with no `.godot/` cache — i.e. a fresh headless run.
+const TrackGeometry := preload("res://scripts/track.gd")
+const DriverBot := preload("res://scripts/bot.gd")
 var track: TrackGeometry
 var bot: DriverBot
 var car: VehicleBody3D

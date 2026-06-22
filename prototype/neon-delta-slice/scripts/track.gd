@@ -1,5 +1,7 @@
 extends RefCounted
-class_name TrackGeometry
+# NOTE: intentionally no `class_name`. Global class names resolve via Godot's
+# `.godot/` cache, which is gitignored and absent on a fresh clone — so a clean
+# headless/CI run would fail to parse. Consumers `preload` this script instead.
 
 # A closed rounded-rectangle racing line on the ground (X/Z) plane.
 # Used for three things the engine doesn't give us for free:

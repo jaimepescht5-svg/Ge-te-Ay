@@ -1,5 +1,7 @@
 extends RefCounted
-class_name DriverBot
+# No `class_name` (see track.gd) — resolve the track type via preload so this
+# parses on a clean clone without the `.godot/` global class cache.
+const TrackGeometry := preload("res://scripts/track.gd")
 
 # A reference "proxy player": follows the racing line with pure pursuit and a
 # lookahead speed planner (brake early for corners, not reactively at them).
