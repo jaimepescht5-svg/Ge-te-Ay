@@ -1,0 +1,44 @@
+{
+  "avg_speed_kmh": 54.826060403972,
+  "best_lap": null,
+  "checks": [
+    {
+      "name": "physics stable (no NaN position)",
+      "ok": true
+    },
+    {
+      "name": "car actually moved (>200 m)",
+      "ok": true
+    },
+    {
+      "name": "reached a sane top speed (>60 km/h)",
+      "ok": true
+    },
+    {
+      "name": "completed at least one lap",
+      "ok": false
+    },
+    {
+      "name": "bot mostly stays on track (off < 25%)",
+      "ok": true
+    },
+    {
+      "name": "no absurd cornering loads (<6 g)",
+      "ok": true
+    },
+    {
+      "name": "captured frames for visual review",
+      "ok": true
+    }
+  ],
+  "distance_m": 455.573482125998,
+  "frames_captured": 188,
+  "laps_done": 0,
+  "max_lateral_g": 4.04360359961833,
+  "mode": "selfcheck",
+  "off_track_fraction": 0,
+  "off_track_seconds": 0,
+  "passed": false,
+  "sim_seconds": 30.0166666666662,
+  "top_speed_kmh": 95.9016632080078
+}
