@@ -58,7 +58,7 @@
   /* start / overlay */
   #overlay { position:fixed; inset:0; z-index:50; display:flex; flex-direction:column;
              align-items:center; justify-content:center; gap:18px; text-align:center;
-             background:radial-gradient(ellipse at 50% 40%, #14122b 0%, #05060c 70%); cursor:pointer; }
+             background:radial-gradient(ellipse at 50% 40%, #1a1610 0%, #060a10 70%); cursor:pointer; }
   #overlay h1 { font-size:64px; letter-spacing:10px; color:#fff;
              text-shadow:0 0 16px var(--pink),0 0 40px var(--pink); }
   #overlay h1 b { color:var(--cyan); text-shadow:0 0 16px var(--cyan),0 0 40px var(--cyan); }
@@ -695,7 +695,8 @@ function boot(){
 
   // cars
   const cars=[]; // {g, heading, speed, parked, police, hp}
-  const carColors=[0xff2a6d,0x05d9e8,0xf9f871,0xb967ff,0x39ff14,0xffffff,0xff7b00,0x3355ff];
+  // Realistic car colour palette: common real-world car colours
+  const carColors=[0xc8c8c8,0x1a1a1a,0x2a3a58,0x8b1a1a,0x3d5c2a,0xa07830,0xd8c8a8,0x4a3060];
   function spawnCar(x,z,heading,opts={}){
     const g=makeCar(opts.color ?? carColors[(Math.random()*carColors.length)|0], opts.police);
     g.position.set(x,0,z); g.rotation.y=heading; scene.add(g);
@@ -1117,9 +1118,9 @@ function boot(){
     // draw the whole world centered on the world origin, then mark the player
     const wx=x=> W/2 + x*scale, wy=z=> H/2 + z*scale;
     mapCtx.clearRect(0,0,W,H);
-    mapCtx.fillStyle='#04101a'; mapCtx.fillRect(0,0,W,H);   // the sea
+    mapCtx.fillStyle='#06141e'; mapCtx.fillRect(0,0,W,H);   // the sea
     // causeways
-    mapCtx.strokeStyle='rgba(5,217,232,.5)'; mapCtx.lineWidth=2;
+    mapCtx.strokeStyle='rgba(160,140,100,.6)'; mapCtx.lineWidth=2;
     for(const c of causeways){ mapCtx.beginPath(); mapCtx.moveTo(wx(c.ax),wy(c.az)); mapCtx.lineTo(wx(c.bx),wy(c.bz)); mapCtx.stroke(); }
     // districts as colored land blocks
     for(const D of DISTRICTS){ mapCtx.fillStyle=hex(D.ground);
