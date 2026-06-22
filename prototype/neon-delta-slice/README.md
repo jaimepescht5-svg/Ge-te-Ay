@@ -49,6 +49,35 @@ python3 tools/plot_run.py "$HOME/.local/share/godot/app_userdata/NEON DELTA — 
 The self-check runs headless-with-rendering via **Xvfb + Mesa software GL**, so
 it works on a box with no GPU or display (e.g. CI or a cloud container).
 
+## The verbs sandbox (on foot · shooting · Heat)
+
+Driving is one verb. The **verbs sandbox** (`Sandbox.tscn` / `scripts/sandbox.gd`)
+proves the rest of the crime-sandbox loop in the same self-observing way:
+
+- **On foot** — a `CharacterBody3D` you walk/run with gravity + collision.
+- **Shooting** — a raycast gun with destructible targets (left-click to fire).
+- **Heat** — a 0–5 wanted level that rises when you commit crimes, spawns
+  pursuers that chase you, and decays once you stay clean.
+
+```bash
+# DRIVE-FREE: walk it yourself  (W A S D move · Shift run · click shoot · R reset)
+GAME_MODE=play engine/Godot_v4.3-stable_linux.x86_64 --path . res://Sandbox.tscn
+
+# WATCH THE FOOT-BOT exercise every verb
+GAME_MODE=bot  engine/Godot_v4.3-stable_linux.x86_64 --path . res://Sandbox.tscn
+
+# AUTONOMOUS SELF-CHECK (foot-bot walks → shoots → triggers Heat; asserts; 0/1)
+tools/selfcheck_foot.sh                 # rendered, captures frames
+tools/selfcheck_foot.sh --headless      # logic/telemetry only
+```
+
+`selfcheck_foot.sh` asserts **13 invariants**: physics stable, moved far enough,
+sane walk speed, reached every waypoint, stayed grounded (no fall-through /
+launch), fired the gun, destroyed every target, decent aim, crimes raised Heat,
+Heat spawned a pursuer, the pursuer closed in, Heat decays when clean, and frames
+were captured. It writes `sandbox_selfcheck.json` + `frames_foot/`. The driving
+slice is untouched and still has its own `selfcheck.sh`.
+
 ## What the loop checks by itself
 
 `selfcheck.sh` drives the bot, logs telemetry, and asserts invariants —

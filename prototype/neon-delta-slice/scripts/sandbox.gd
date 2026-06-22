@@ -30,7 +30,7 @@ const TURN_SPEED := 10.0      # how fast the body faces its travel direction
 const ARENA := 60.0          # half-extent of the walled flat ground
 
 # ---- selfcheck ----
-const SELFCHECK_SECONDS := 30.0
+const SELFCHECK_SECONDS := 45.0
 const CAPTURE_INTERVAL := 1.5
 
 var mode := "play"
@@ -55,6 +55,22 @@ var target_pos: Array = []          # Array[Vector3]
 var shots_fired := 0
 var shots_hit := 0
 var targets_destroyed := 0
+
+# ---- wanted / Heat verb ----
+const HEAT_PER_CRIME := 1.2
+const HEAT_MAX := 5.0
+const HEAT_DECAY := 0.25          # stars/sec once "clean"
+const HEAT_CLEAN_DELAY := 2.0     # seconds after last crime before decay starts
+const PURSUER_SPEED := 7.5
+const PURSUER_CAP := 3
+const OBSERVE_SECONDS := 7.0      # watch Heat/pursuers after the bot is done
+var heat := 0.0
+var heat_peak := 0.0
+var heat_clean_timer := 0.0
+var pursuers: Array = []
+var pursuers_spawned := 0
+var pursuer_min_dist := INF
+var done_time := -1.0
 
 # telemetry / state
 var sim_time := 0.0
@@ -304,14 +320,19 @@ func _physics_process(delta: float) -> void:
 	if c.get("fire", false):
 		_shoot()
 	_update_telemetry(delta)
+	_update_heat(delta)
+	_update_pursuers(delta)
 
 	if mode == "play" and Input.is_action_just_pressed("reset"):
 		_reset_player()
 
 	if mode == "selfcheck":
 		var p := player.global_position
-		samples.append({"t": sim_time, "x": p.x, "z": p.z, "y": p.y, "speed": _planar_speed()})
-		if sim_time >= selfcheck_seconds or bot_done:
+		samples.append({"t": sim_time, "x": p.x, "z": p.z, "y": p.y, "speed": _planar_speed(), "heat": heat})
+		if bot_done and done_time < 0.0:
+			done_time = sim_time
+		var observed := done_time >= 0.0 and sim_time >= done_time + OBSERVE_SECONDS
+		if sim_time >= selfcheck_seconds or observed:
 			_finish_selfcheck()
 
 func _player_controls() -> Dictionary:
@@ -344,7 +365,73 @@ func _shoot() -> void:
 			shots_hit += 1
 			target_meshes[idx].visible = false
 			target_bodies[idx].set_collision_layer_value(1, false)
+			_commit_crime()
 	_spawn_tracer(from, hit_point)
+
+func _commit_crime() -> void:
+	heat = minf(HEAT_MAX, heat + HEAT_PER_CRIME)
+	heat_peak = maxf(heat_peak, heat)
+	heat_clean_timer = 0.0
+
+func _update_heat(delta: float) -> void:
+	heat_clean_timer += delta
+	if heat_clean_timer > HEAT_CLEAN_DELAY and heat > 0.0:
+		heat = maxf(0.0, heat - HEAT_DECAY * delta)
+	# spawn pursuers proportional to the wanted level
+	var want: int = mini(PURSUER_CAP, int(floor(heat)))
+	while pursuers.size() < want:
+		_spawn_pursuer()
+
+func _spawn_pursuer() -> void:
+	var cop := CharacterBody3D.new()
+	var col := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.4
+	cap.height = 1.8
+	col.shape = cap
+	col.position.y = 0.9
+	cop.add_child(col)
+	var mesh := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = 0.4
+	cm.height = 1.8
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.05, 0.85, 0.91)         # NEON DELTA cyan = the law
+	mat.emission_enabled = true
+	mat.emission = Color(0.05, 0.85, 0.91)
+	mat.emission_energy_multiplier = 0.6
+	mesh.mesh = cm
+	mesh.position.y = 0.9
+	mesh.material_override = mat
+	cop.add_child(mesh)
+	# spawn at an arena corner away from the player
+	var p := player.global_position
+	var corner := Vector3(ARENA - 4, 1.0, ARENA - 4)
+	if p.x > 0: corner.x = -(ARENA - 4)
+	if p.z > 0: corner.z = -(ARENA - 4)
+	cop.position = corner
+	add_child(cop)
+	pursuers.append(cop)
+	pursuers_spawned += 1
+
+func _update_pursuers(delta: float) -> void:
+	var p := player.global_position
+	for cop: CharacterBody3D in pursuers:
+		var to: Vector3 = p - cop.global_position
+		var flat := Vector2(to.x, to.z)
+		var dist := flat.length()
+		pursuer_min_dist = minf(pursuer_min_dist, dist)
+		var dir := flat.normalized() if dist > 0.001 else Vector2.ZERO
+		var v: Vector3 = cop.velocity
+		v.x = dir.x * PURSUER_SPEED
+		v.z = dir.y * PURSUER_SPEED
+		if not cop.is_on_floor():
+			v.y -= GRAVITY * delta
+		else:
+			v.y = maxf(v.y, -0.1)
+		cop.velocity = v
+		cop.move_and_slide()
+		cop.rotation.y = atan2(dir.x, dir.y) if dir.length() > 0.1 else cop.rotation.y
 
 func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	# visual only; skipped headless. Brief glowing line + muzzle flash.
@@ -422,9 +509,12 @@ func _update_camera() -> void:
 func _update_hud() -> void:
 	if hud == null:
 		return
-	hud.text = "NEON DELTA — on foot\nmode:%s  speed:%.1f m/s  waypoints:%d/%d  targets:%d/%d" % [
+	var stars := ""
+	for i in range(5):
+		stars += "*" if i < int(round(heat)) else "."
+	hud.text = "NEON DELTA — on foot\nmode:%s  speed:%.1f m/s  waypoints:%d/%d  targets:%d/%d\nHEAT [%s]  pursuers:%d" % [
 		mode, _planar_speed(), waypoints_reached, waypoints.size(),
-		targets_destroyed, target_pos.size(),
+		targets_destroyed, target_pos.size(), stars, pursuers.size(),
 	]
 
 func _capture_frame() -> void:
@@ -453,6 +543,10 @@ func _finish_selfcheck() -> void:
 	checks.append(_check("fired the gun", shots_fired > 0))
 	checks.append(_check("destroyed every target", targets_destroyed >= target_pos.size()))
 	checks.append(_check("decent aim (>=45% of shots hit)", shots_fired > 0 and float(shots_hit) / float(shots_fired) >= 0.45))
+	checks.append(_check("crimes raised Heat (peak >= 1 star)", heat_peak >= 1.0))
+	checks.append(_check("Heat spawned a pursuer", pursuers_spawned > 0))
+	checks.append(_check("pursuer closed in (min dist < 32 m)", pursuer_min_dist < 32.0))
+	checks.append(_check("Heat decays when clean (final < peak)", heat < heat_peak - 0.1))
 	checks.append(_check("captured frames for visual review", capture_index >= 3))
 
 	var passed := true
@@ -473,6 +567,10 @@ func _finish_selfcheck() -> void:
 		"shots_hit": shots_hit,
 		"targets_destroyed": targets_destroyed,
 		"targets_total": target_pos.size(),
+		"heat_peak": heat_peak,
+		"heat_final": heat,
+		"pursuers_spawned": pursuers_spawned,
+		"pursuer_min_dist": pursuer_min_dist,
 		"frames_captured": capture_index,
 		"checks": checks,
 		"passed": passed,
