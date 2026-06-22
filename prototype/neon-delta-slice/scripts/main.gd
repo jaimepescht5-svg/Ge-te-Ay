@@ -108,6 +108,7 @@ const HEAT_PER_SHOT := 0.5
 # ----------------------------------------------------------------- runtime state
 var mode := "play"
 var selfcheck_seconds := 300.0
+var headless := false   # true under --headless: skip render-only decoration
 
 var car: VehicleBody3D
 var player_body: CharacterBody3D
@@ -179,6 +180,7 @@ func _ready() -> void:
 	if ts != "":
 		Engine.time_scale = float(ts)
 	rng.seed = 12345
+	headless = DisplayServer.get_name() == "headless"
 
 	_setup_input()
 	_build_environment()
@@ -286,6 +288,8 @@ func _build_environment() -> void:
 # Warm orange OmniLights at district corners and along causeways. They glow at
 # night and switch off in daylight (driven by _update_day_night).
 func _build_streetlights() -> void:
+	if headless:
+		return   # OmniLights + poles are render-only decoration
 	# district corners
 	for d in DISTRICTS:
 		var hw: float = d["w"] * 0.5 - 12.0
@@ -427,6 +431,9 @@ func _build_district(d: Dictionary) -> void:
 	body.position = Vector3(cx, 0, cz)
 	add_child(body)
 
+	# --- road grid, centre lines, sidewalks ---
+	_build_district_roads(cx, cz, w, dep)
+
 	# --- flood overlay (translucent water plane, animated by the tide) ---
 	var fmesh := MeshInstance3D.new()
 	var fplane := PlaneMesh.new()
@@ -519,6 +526,81 @@ func _place_building(pos: Vector3, size: Vector3, base_col: Color, neon: Color) 
 	body.position = pos
 	add_child(body)
 
+# Lay a simple 2-lane asphalt grid over a district with white dashed centre lines
+# and raised concrete sidewalks along the road edges. All visual (no collision):
+# the district ground slab underneath stays the drivable surface.
+const ROAD_WIDTH := 12.0
+const ROAD_SPACING := 80.0
+
+func _build_district_roads(cx: float, cz: float, w: float, dep: float) -> void:
+	if headless:
+		return   # decorative-only; no collision, skip in headless CI
+	var hw := w * 0.5
+	var hd := dep * 0.5
+	# vertical roads (run along z) at regular x intervals, including centre
+	var nx := int(w / ROAD_SPACING)
+	for i in range(-nx, nx + 1):
+		var x := i * ROAD_SPACING
+		if absf(x) > hw - ROAD_WIDTH:
+			continue
+		_road_strip(Vector3(cx + x, 0.01, cz), Vector3(ROAD_WIDTH, 0.02, dep))
+		_dashed_line(Vector3(cx + x, 0.03, cz), dep, false)
+		_sidewalk_pair(cx + x, cz, dep, true)
+	# horizontal roads (run along x) at regular z intervals
+	var nz := int(dep / ROAD_SPACING)
+	for j in range(-nz, nz + 1):
+		var z := j * ROAD_SPACING
+		if absf(z) > hd - ROAD_WIDTH:
+			continue
+		_road_strip(Vector3(cx, 0.01, cz + z), Vector3(w, 0.02, ROAD_WIDTH))
+		_dashed_line(Vector3(cx, 0.03, cz + z), w, true)
+		_sidewalk_pair(cx, cz + z, w, false)
+
+func _road_strip(pos: Vector3, size: Vector3) -> void:
+	var m := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	m.mesh = bm
+	m.material_override = _mat(0x1a1a1a)
+	m.position = pos
+	add_child(m)
+
+# Dashed white centre line. `along_x` true: dashes run along x; else along z.
+func _dashed_line(pos: Vector3, length: float, along_x: bool) -> void:
+	var step := 8.0
+	var dash_len := 3.0
+	var n := int(length / step)
+	var start := -length * 0.5 + step * 0.5
+	for k in range(n):
+		var off := start + k * step
+		var m := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		if along_x:
+			bm.size = Vector3(dash_len, 0.02, 0.5)
+			m.position = pos + Vector3(off, 0, 0)
+		else:
+			bm.size = Vector3(0.5, 0.02, dash_len)
+			m.position = pos + Vector3(0, 0, off)
+		m.mesh = bm
+		m.material_override = _mat(0xf0f0f0, true, 0.4)
+		add_child(m)
+
+# Raised concrete sidewalks flanking a road. `vertical` true: road runs along z.
+func _sidewalk_pair(rx: float, rz: float, length: float, vertical: bool) -> void:
+	var edge := ROAD_WIDTH * 0.5 + 1.0
+	for s in [-1.0, 1.0]:
+		var m := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		if vertical:
+			bm.size = Vector3(2.0, 0.1, length)
+			m.position = Vector3(rx + s * edge, 0.05, rz)
+		else:
+			bm.size = Vector3(length, 0.1, 2.0)
+			m.position = Vector3(rx, 0.05, rz + s * edge)
+		m.mesh = bm
+		m.material_override = _mat(0xb0a090)
+		add_child(m)
+
 func _build_causeways() -> void:
 	for c in CAUSEWAYS:
 		_build_causeway(c)
@@ -556,6 +638,46 @@ func _build_causeway(c: Dictionary) -> void:
 	# two glowing cyan rail strips along the edges (visual only)
 	_causeway_rail(mid, yaw, span, hw)
 	_causeway_rail(mid, yaw, span, -hw)
+
+	# dashed yellow centre line + cyan guardrail posts (decorative)
+	if not headless:
+		_causeway_centre_line(a, b, span)
+		_causeway_guardrails(a, b, span, hw)
+
+func _causeway_centre_line(a: Vector2, b: Vector2, span: float) -> void:
+	var dir := (b - a).normalized()
+	var step := 8.0
+	var n := int(span / step)
+	for k in range(n):
+		var t := (k * step + step * 0.5) / span
+		var p := a.lerp(b, t)
+		var m := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.4, 0.02, 3.0)
+		m.mesh = bm
+		m.material_override = _mat(0xf9f871, true, 0.6)
+		m.position = Vector3(p.x, 0.04, p.y)
+		m.rotation.y = atan2(dir.x, dir.y)
+		add_child(m)
+
+func _causeway_guardrails(a: Vector2, b: Vector2, span: float, hw: float) -> void:
+	var dir := (b - a).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	var step := 15.0
+	var n := int(span / step)
+	for k in range(n + 1):
+		var t := clampf((k * step) / span, 0.0, 1.0)
+		var p := a.lerp(b, t)
+		for s in [-1.0, 1.0]:
+			var post := MeshInstance3D.new()
+			var cm := CapsuleMesh.new()
+			cm.radius = 0.12
+			cm.height = 1.2
+			post.mesh = cm
+			post.material_override = _mat(0x05d9e8, true, 1.4)
+			var q: Vector2 = p + perp * (hw * s)
+			post.position = Vector3(q.x, 0.6, q.y)
+			add_child(post)
 
 func _causeway_rail(mid: Vector2, yaw: float, span: float, offset: float) -> void:
 	var rail := MeshInstance3D.new()
