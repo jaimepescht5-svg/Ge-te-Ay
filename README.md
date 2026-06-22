@@ -48,6 +48,7 @@ the full firewall.
 
 | Doc | What's inside |
 |-----|---------------|
+| [00 — Master Index & Reading Guide](docs/00-index.md) | **Start here** — where to begin and how the docs relate |
 | [01 — Vision & Pillars](docs/01-vision.md) | The creative north star and design pillars |
 | [02 — World & Setting](docs/02-setting-world.md) | Port Soleil, Solano County, the era and tone |
 | [03 — Characters](docs/03-characters.md) | The crew, the antagonists, the supporting cast |
@@ -96,6 +97,8 @@ the full firewall.
 | [45 — Solano Online (Deep Dive)](docs/45-solano-online-deepdive.md) | Crews, co-op heists, businesses, anti-grief |
 | [46 — Localization & Culturalization](docs/46-localization-and-culturalization.md) | Shipping the city's voice worldwide, respectfully |
 | [47 — Photo Mode & Community](docs/47-photo-mode-and-community.md) | Capture, sharing, creator tools, moderation |
+| [48 — Narrative Branching System](docs/48-narrative-branching-system.md) | The flags/meters/gates choice machinery |
+| [49 — Difficulty & Balance](docs/49-difficulty-and-balance.md) | Per-system difficulty axes and balance design |
 
 ---
 

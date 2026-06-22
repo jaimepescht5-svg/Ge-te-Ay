@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 13 — Navigation & Systems Closeout
+- Added three docs:
+  - 00 Master Index & Reading Guide — "start here": role-based reading paths, doc
+    families, the pillars cheat sheet, and the non-negotiable promises
+  - 48 Narrative Branching System — the flags/meters/gates architecture,
+    "wide reaction / narrow branch," the ending-fork logic, personal codas
+  - 49 Difficulty & Balance — per-system difficulty axes, what scales (and what
+    never does), loud/quiet/clever EV balance, AI/tuning rules
+- Added the index link to the top of the README doc map.
+
 ## Round 12 — Online, Global & Community
 - Added three docs:
   - 45 Solano Online (Deep Dive) — created-character, player crews & roles, the
