@@ -152,17 +152,150 @@ function boot(){
   app.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x070b16);
-  // thinner fog than the old toy: the world is bigger, and landmarks must read from afar
-  scene.fog = new THREE.FogExp2(0x0a1020, 0.0017);
+  scene.background = new THREE.Color(0x0d1a2e);
+  scene.fog = new THREE.FogExp2(0x0d1a2e, 0.0017);
 
   const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 1200);
 
+  /* ---------- time-of-day clock ----------
+     A slow 24-minute real-time cycle (1 game-day = 24 min wall time).
+     tod: 0.0 = midnight, 0.25 = dawn, 0.5 = noon, 0.75 = dusk.
+     We start at ~golden-hour (tod = 0.70) so the opening view is
+     the city's signature mood as described in docs/15-art-direction.md.
+  -------------------------------------------------------------------- */
+  const TOD_CYCLE = 24 * 60; // seconds per full cycle
+  let todSec = 0.70 * TOD_CYCLE;  // start at golden hour
+
+  // Key sky / light colours for each phase (physically plausible):
+  //   midnight  tod=0.00  deep navy
+  //   dawn      tod=0.25  blue-hour → warm orange
+  //   noon      tod=0.50  bright hazy blue
+  //   golden    tod=0.72  warm amber/golden
+  //   dusk      tod=0.78  deeper orange, orange-rose horizon
+  //   night     tod=0.88  sodium streetlights dominate, cool blue sky
+
+  function todPhaseColor(stops, t){
+    // stops: [[t0,r,g,b], [t1,r,g,b], ...] — lerp through them cyclically.
+    t = ((t % 1) + 1) % 1;
+    for(let i=0;i<stops.length;i++){
+      const a=stops[i], b=stops[(i+1)%stops.length];
+      let t0=a[0], t1=b[0]; if(t1<=t0) t1+=1;
+      if(t>=t0 && t<t1){ const u=(t-t0)/(t1-t0);
+        return [a[1]+(b[1]-a[1])*u, a[2]+(b[2]-a[2])*u, a[3]+(b[3]-a[3])*u]; }
+    }
+    return stops[0].slice(1);
+  }
+
+  // Sky/fog colour stops  [tod, r, g, b] (0–1 normalised)
+  const SKY_STOPS = [
+    [0.00, 0.03, 0.06, 0.12],  // midnight: deep navy
+    [0.20, 0.04, 0.07, 0.16],  // pre-dawn: still dark
+    [0.24, 0.08, 0.12, 0.25],  // civil twilight: blue-grey
+    [0.27, 0.52, 0.28, 0.12],  // sunrise glow: warm amber horizon
+    [0.32, 0.56, 0.72, 0.89],  // post-sunrise: pale blue
+    [0.50, 0.46, 0.67, 0.87],  // noon: hazy subtropical blue
+    [0.68, 0.68, 0.58, 0.42],  // late afternoon: golden-warm
+    [0.72, 0.78, 0.42, 0.14],  // golden hour: deep amber
+    [0.77, 0.58, 0.24, 0.12],  // sunset: orange-red
+    [0.82, 0.14, 0.14, 0.26],  // blue hour: dark indigo
+    [0.87, 0.05, 0.08, 0.18],  // dusk into night: deep blue
+    [0.95, 0.03, 0.06, 0.13],  // night: near-black blue
+  ];
+
+  // Sun / directional light colour stops
+  const SUN_STOPS = [
+    [0.00, 0.00, 0.00, 0.00],  // midnight: off
+    [0.22, 0.00, 0.00, 0.00],  // pre-dawn: off
+    [0.25, 0.82, 0.44, 0.14],  // sunrise: deep orange (low CT ~1800K)
+    [0.30, 1.00, 0.78, 0.52],  // morning: warm golden (3500K)
+    [0.42, 1.00, 0.95, 0.82],  // mid-morning: warm-white (5500K)
+    [0.50, 1.00, 0.98, 0.92],  // noon: near-white (6000K)
+    [0.65, 1.00, 0.92, 0.70],  // late afternoon: golden (4200K)
+    [0.72, 1.00, 0.72, 0.28],  // golden hour: deep amber (2500K)
+    [0.77, 0.96, 0.44, 0.14],  // sunset: red-orange (1800K)
+    [0.80, 0.00, 0.00, 0.00],  // below horizon: off
+    [0.95, 0.00, 0.00, 0.00],  // night: off
+  ];
+
+  // Ambient sky/ground colour stops
+  const AMB_SKY_STOPS = [
+    [0.00, 0.04, 0.07, 0.18],  // midnight: cool blue-purple
+    [0.24, 0.06, 0.09, 0.22],  // pre-dawn
+    [0.28, 0.48, 0.28, 0.10],  // sunrise: warm amber wash
+    [0.38, 0.40, 0.52, 0.68],  // morning: soft blue sky light
+    [0.50, 0.52, 0.64, 0.80],  // noon: bright diffuse
+    [0.68, 0.56, 0.48, 0.30],  // late afternoon: warm golden
+    [0.72, 0.60, 0.36, 0.10],  // golden hour: amber
+    [0.78, 0.22, 0.16, 0.28],  // dusk: indigo-rose
+    [0.85, 0.08, 0.10, 0.24],  // early night: cool blue
+    [0.95, 0.04, 0.07, 0.18],  // night: cool blue-purple
+  ];
+  const AMB_GND_STOPS = [
+    [0.00, 0.01, 0.01, 0.02],  // midnight: near-black
+    [0.28, 0.14, 0.08, 0.02],  // sunrise: very faint warm ground
+    [0.50, 0.22, 0.20, 0.14],  // noon: some warm bounce
+    [0.72, 0.28, 0.18, 0.04],  // golden hour: stronger warm bounce
+    [0.80, 0.04, 0.03, 0.06],  // dusk into night
+    [0.95, 0.01, 0.01, 0.02],  // night: near-black
+  ];
+
   /* ---------- lights ---------- */
-  scene.add(new THREE.AmbientLight(0x2a3a66, 0.7));
-  const hemi = new THREE.HemisphereLight(0x223a66, 0x080a12, 0.6); scene.add(hemi);
-  const moon = new THREE.DirectionalLight(0x8fb6ff, 0.5);
+  const ambient = new THREE.AmbientLight(0x080c1a, 0.4); scene.add(ambient);
+  const hemi = new THREE.HemisphereLight(0x1a2a4a, 0x050508, 0.5); scene.add(hemi);
+  // Primary directional: sun (day) / moon (night) — one light, colour-keyed by TOD
+  const sun = new THREE.DirectionalLight(0xffeedd, 0.0);
+  sun.position.set(-200, 80, 150);  // low on western horizon, warm southern angle
+  scene.add(sun);
+  // Secondary fill: cool blue skylight from the opposite direction (always on, subtle)
+  const skyFill = new THREE.DirectionalLight(0x6a8fbf, 0.12);
+  skyFill.position.set(80, 160, -60); scene.add(skyFill);
+  // Moon: separate from sun so it can be a constant cool blue at night
+  const moon = new THREE.DirectionalLight(0x9ab4e0, 0.0);
   moon.position.set(120, 220, -80); scene.add(moon);
+
+  // Update TOD each frame (called from main loop)
+  function updateTOD(dt){
+    todSec = (todSec + dt) % TOD_CYCLE;
+    const tod = todSec / TOD_CYCLE;
+
+    // Sky background + fog
+    const [sr,sg,sb] = todPhaseColor(SKY_STOPS, tod);
+    scene.background.setRGB(sr, sg, sb);
+    scene.fog.color.setRGB(sr*0.85, sg*0.85, sb*0.85);
+
+    // Sun intensity: rises at dawn, peaks at noon, zero by nightfall
+    const [lr,lg,lb] = todPhaseColor(SUN_STOPS, tod);
+    const sunLum = (lr+lg+lb)/3;
+    sun.color.setRGB(lr,lg,lb);
+    // Sun intensity peaks ~2.2 at noon, 1.4 at golden hour, 0 at night
+    const sunInt = sunLum > 0.01 ? sunLum * 2.4 : 0;
+    sun.intensity = sunInt;
+
+    // Sun position — arc across the sky: rises in east (x=+), sets in west (x=-)
+    // tod 0.25=east, 0.50=zenith, 0.75=west
+    const sunAngle = (tod - 0.25) * Math.PI * 2;  // 0 at sunrise, PI at sunset
+    sun.position.set(
+      -Math.sin(sunAngle) * 300,        // east→west sweep
+       Math.cos(Math.min(sunAngle, Math.PI)) * 220 + 20, // arc height
+      -100
+    );
+
+    // Moon: opposite the sun, only significant at night
+    const isNight = tod < 0.22 || tod > 0.85;
+    moon.intensity = isNight ? 0.35 : Math.max(0, (tod - 0.85) / 0.15) * 0.35;
+
+    // Ambient: warm at golden hour, cool blue at night
+    const [ar,ag,ab] = todPhaseColor(AMB_SKY_STOPS, tod);
+    const [gr,gg,gb] = todPhaseColor(AMB_GND_STOPS, tod);
+    hemi.color.setRGB(ar,ag,ab);
+    hemi.groundColor.setRGB(gr,gg,gb);
+    const ambLum = (ar+ag+ab)/3;
+    ambient.intensity = 0.15 + ambLum * 0.55;
+    ambient.color.setRGB(ar,ag,ab);
+
+    // Sky fill dims to near-zero at night (don't fight the sodium)
+    skyFill.intensity = 0.05 + Math.max(0, Math.min(1, sunLum * 2)) * 0.18;
+  }
 
   /* ============================================================
      THE WORLD — Port Soleil, Solano County
@@ -216,9 +349,9 @@ function boot(){
     landRects.push({minx:D.minx,maxx:D.maxx,minz:D.minz,maxz:D.maxz});
   }
 
-  // ---- The sea: a dark animated plane the islands sit on ----
-  const seaMat = new THREE.MeshStandardMaterial({ color:0x04121e, roughness:0.25, metalness:0.7,
-    emissive:0x031018, emissiveIntensity:0.4, transparent:true, opacity:0.96 });
+  // ---- The sea: dark teal-slate, PBR water (reflects sky at runtime) ----
+  const seaMat = new THREE.MeshStandardMaterial({ color:0x08202e, roughness:0.08, metalness:0.85,
+    emissive:0x020c14, emissiveIntensity:0.12, transparent:true, opacity:0.97 });
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(EXTENT*4, EXTENT*4, 1,1), seaMat);
   sea.rotation.x=-Math.PI/2; sea.position.y=-0.6; scene.add(sea);
 
@@ -230,12 +363,31 @@ function boot(){
       new THREE.MeshStandardMaterial({color:0x191b22, roughness:0.8, metalness:0.2}));
     deck.rotation.x=-Math.PI/2; deck.rotation.z=-ang;
     deck.position.set((ax+bx)/2, 0.05, (az+bz)/2); scene.add(deck);
-    // glowing edge rails
-    const railMat=new THREE.MeshStandardMaterial({color:0x05d9e8, emissive:0x05d9e8, emissiveIntensity:1.0});
+    // edge rails — concrete with subtle cyan LED strip (small neon detail, not dominant)
+    const railMat=new THREE.MeshStandardMaterial({color:0x2a2e38, roughness:0.8, metalness:0.2,
+      emissive:0x05d9e8, emissiveIntensity:0.18});
     for(const s of [-1,1]){
       const rail=new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, len), railMat);
       rail.position.set((ax+bx)/2 + Math.cos(ang)*hw*s, 0.5, (az+bz)/2 - Math.sin(ang)*hw*s);
       rail.rotation.y=ang; scene.add(rail);
+    }
+    // Sodium streetlamps every ~40m along the causeway
+    const lampCount = Math.max(2, Math.floor(len/40));
+    for(let li=0;li<lampCount;li++){
+      const frac = (li+0.5)/lampCount;
+      const lx=(ax+bx*frac)-(ax*(1-frac)); // lerp
+      const lz=(az+bz*frac)-(az*(1-frac));
+      // pole
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,6,6),
+        new THREE.MeshStandardMaterial({color:0x3a3a3a,roughness:0.9}));
+      pole.position.set(ax+(bx-ax)*frac, 3, az+(bz-az)*frac); scene.add(pole);
+      // lamp head warm sodium
+      const lampHead=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.4,0.6),
+        new THREE.MeshStandardMaterial({color:0xff9040,emissive:0xff7820,emissiveIntensity:1.2}));
+      lampHead.position.set(ax+(bx-ax)*frac, 6.3, az+(bz-az)*frac); scene.add(lampHead);
+      // point light — warm sodium orange
+      const sl=new THREE.PointLight(0xff8830, 1.2, 50, 2);
+      sl.position.set(ax+(bx-ax)*frac, 6.2, az+(bz-az)*frac); scene.add(sl);
     }
   }
   addCauseway(20,-145, 30,-300, 13);   // Downtown → Cayo Brava (the big causeway)
@@ -245,8 +397,12 @@ function boot(){
   addCauseway(70,170, 130,270, 11);    // The Cut → Sabal Springs
 
   // ---- District grounds + buildings ----
+  // neonMat: used ONLY for small neon signs and UI-like details (not building bodies)
   function neonMat(hue, gi){ return new THREE.MeshStandardMaterial({ color:hue, emissive:hue,
     emissiveIntensity:gi, roughness:0.3 }); }
+  // windowMat: realistic incandescent/LED window glow — warm amber, not neon
+  const WIN_WARM = 0xffcc77;   // incandescent / warm LED windows
+  const WIN_COOL = 0xd0e8ff;   // fluorescent / office light windows
   function addSign(c, w, d, hgt, hue){
     const sy=hgt*(0.55+R()*0.35), m=neonMat(hue,1.6);
     const band=new THREE.Mesh(new THREE.BoxGeometry(w*1.01, 2.2+R()*3, 0.4), m);
@@ -269,14 +425,16 @@ function boot(){
     slab.rotation.x=-Math.PI/2; slab.position.set(D.cx,0,D.cz); scene.add(slab);
 
     // block layout tuned per style
+    // emiI: realistic window glow intensity (very low — windows, not spotlights)
+    // winCol: warm amber for residential, cooler for commercial/industrial
     const cfg=({
-      towers:   {cell:50, road:16, hMin:34, hMax:165, fp:0.74, body:0x0e1422, emiI:0.10},
-      rowhouse: {cell:34, road:12, hMin:8,  hMax:22,  fp:0.82, body:0x241b22, emiI:0.16},
-      mansion:  {cell:64, road:18, hMin:9,  hMax:18,  fp:0.46, body:0x1a2a20, emiI:0.05},
-      industrial:{cell:58, road:16, hMin:10, hMax:34, fp:0.80, body:0x16140f, emiI:0.06},
-      beach:    {cell:46, road:16, hMin:6,  hMax:16,  fp:0.55, body:0x223047, emiI:0.10},
-      swamp:    {cell:48, road:18, hMin:6,  hMax:13,  fp:0.62, body:0x12241a, emiI:0.07},
-      suburb:   {cell:58, road:18, hMin:6,  hMax:15,  fp:0.66, body:0x241d16, emiI:0.06},
+      towers:   {cell:50, road:16, hMin:34, hMax:165, fp:0.74, body:0x12161e, emiI:0.06, win:WIN_COOL},
+      rowhouse: {cell:34, road:12, hMin:8,  hMax:22,  fp:0.82, body:0x1e1616, emiI:0.09, win:WIN_WARM},
+      mansion:  {cell:64, road:18, hMin:9,  hMax:18,  fp:0.46, body:0x1a2218, emiI:0.04, win:WIN_WARM},
+      industrial:{cell:58, road:16, hMin:10, hMax:34, fp:0.80, body:0x16140f, emiI:0.03, win:WIN_COOL},
+      beach:    {cell:46, road:16, hMin:6,  hMax:16,  fp:0.55, body:0x1e2430, emiI:0.05, win:WIN_WARM},
+      swamp:    {cell:48, road:18, hMin:6,  hMax:13,  fp:0.62, body:0x101c14, emiI:0.04, win:WIN_WARM},
+      suburb:   {cell:58, road:18, hMin:6,  hMax:15,  fp:0.66, body:0x1e1810, emiI:0.04, win:WIN_WARM},
     })[D.style];
     const nx=Math.max(1,Math.floor(D.w/cfg.cell)), nz=Math.max(1,Math.floor(D.d/cfg.cell));
     const stepx=D.w/nx, stepz=D.d/nz;
@@ -285,8 +443,8 @@ function boot(){
       // The Cut: carve canals along a couple of rows (boat-roads; flood first)
       if(D.style==='rowhouse' && (j===1 || j===nz-2)){
         const canal=new THREE.Mesh(new THREE.PlaneGeometry(stepx*0.96, stepz*0.5),
-          new THREE.MeshStandardMaterial({color:0x06212e, metalness:0.6, roughness:0.3,
-            emissive:0x05222e, emissiveIntensity:0.5}));
+          new THREE.MeshStandardMaterial({color:0x08202c, metalness:0.75, roughness:0.15,
+            emissive:0x040e16, emissiveIntensity:0.18}));
         canal.rotation.x=-Math.PI/2; canal.position.set(cxp,0.03,czp); scene.add(canal);
         continue;
       }
@@ -294,25 +452,44 @@ function boot(){
       const w=(stepx-cfg.road)*(0.7+R()*0.28), d=(stepz-cfg.road)*(0.7+R()*0.28);
       let hgt=cfg.hMin+R()*R()*(cfg.hMax-cfg.hMin);
       const hue=pick(D.palette);
-      addBuilding(cxp,czp,w,d,hgt, cfg.body, hue, cfg.emiI);
-      // neon signage — common in nightlife districts, rare in suburb/mansion
-      const signP=(D.style==='towers'||D.style==='rowhouse')?0.8:(D.style==='beach'?0.6:0.2);
+      // Building body: realistic window glow (warm amber), NOT the neon palette color
+      addBuilding(cxp,czp,w,d,hgt, cfg.body, cfg.win, cfg.emiI);
+      // Neon signs: ONLY on towers and rowhouses (nightlife districts), as small details
+      const signP=(D.style==='towers'||D.style==='rowhouse')?0.65:(D.style==='beach'?0.40:0.08);
       if(R()<signP) addSign({x:cxp,z:czp}, w, d, hgt, hue);
-      // occasional rooftop glow
-      if(R()<0.10){ const pl=new THREE.PointLight(hue,1.0,80,2); pl.position.set(cxp,hgt+5,czp); cityGroup.add(pl); }
+      // Rooftop lights: warm sodium, not neon — functional lighting, not decoration
+      if(R()<0.10){
+        // 70% warm sodium, 30% red aircraft warning light
+        const isWarning = (R()<0.30 && hgt>80);
+        const lightCol = isWarning ? 0xff2200 : 0xff8830;
+        const pl=new THREE.PointLight(lightCol, isWarning?0.8:0.9, 70, 2);
+        pl.position.set(cxp, hgt+4, czp); cityGroup.add(pl);
+      }
       // swamp: a few trees/stilts around shacks
       if(D.style==='swamp' && R()<0.5){
         const tree=new THREE.Mesh(new THREE.ConeGeometry(2.4,9,6),
           new THREE.MeshStandardMaterial({color:0x0c2417, roughness:0.9}));
         tree.position.set(cxp+rr(-8,8),4.5,czp+rr(-8,8)); cityGroup.add(tree);
       }
+      // Sodium streetlamp at intersection corners (dense districts only)
+      if(D.density>0.5 && R()<0.18 && i%2===0 && j%2===0){
+        const px=cxp+stepx*0.5-cfg.road*0.5, pz=czp+stepz*0.5-cfg.road*0.5;
+        const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,7,5),
+          new THREE.MeshStandardMaterial({color:0x383838,roughness:0.9}));
+        pole.position.set(px,3.5,pz); cityGroup.add(pole);
+        const lh=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.32,0.5),
+          new THREE.MeshStandardMaterial({color:0xff8820,emissive:0xff6610,emissiveIntensity:1.0}));
+        lh.position.set(px,7.2,pz); cityGroup.add(lh);
+        const sl=new THREE.PointLight(0xff7720, 1.4, 45, 2);
+        sl.position.set(px,7,pz); cityGroup.add(sl);
+      }
     }
 
     // tide flood overlay on low-lying districts (rises with the tide system)
     if(D.flood==='first' || D.flood==='mid'){
       const fm=new THREE.Mesh(new THREE.PlaneGeometry(D.w*0.98, D.d*0.98),
-        new THREE.MeshStandardMaterial({color:0x062436, metalness:0.7, roughness:0.2,
-          transparent:true, opacity:0.0, emissive:0x05222e, emissiveIntensity:0.4}));
+        new THREE.MeshStandardMaterial({color:0x081c28, metalness:0.82, roughness:0.06,
+          transparent:true, opacity:0.0, emissive:0x030e18, emissiveIntensity:0.10}));
       fm.rotation.x=-Math.PI/2; fm.position.set(D.cx,0.06,D.cz); scene.add(fm);
       floodSheets.push({mesh:fm, first:D.flood==='first'});
     }
@@ -320,38 +497,52 @@ function boot(){
 
   /* ---------- Landmarks (for navigation & the bible's thesis) ---------- */
   // Crane Tower — the tallest thing downtown; the city's compass needle.
+  // Crown: cyan-tinted glass top (architectural detail — small neon accent acceptable here)
   (function craneTower(){
-    const t=addBuilding(40,-70, 30,30, 230, 0x0c1120, 0x05d9e8, 0.18);
+    const t=addBuilding(40,-70, 30,30, 230, 0x0e1828, WIN_COOL, 0.07);
     const crown=new THREE.Mesh(new THREE.CylinderGeometry(2,12,26,6),
-      neonMat(0x05d9e8,1.4)); crown.position.set(40,243,-70); cityGroup.add(crown);
-    const beacon=new THREE.PointLight(0x05d9e8,2.2,260,2); beacon.position.set(40,258,-70); cityGroup.add(beacon);
-    world.crane={x:40,z:-70};
+      new THREE.MeshStandardMaterial({color:0x1a2a3a, roughness:0.2, metalness:0.6,
+        emissive:0x05d9e8, emissiveIntensity:0.25}));
+    crown.position.set(40,243,-70); cityGroup.add(crown);
+    // Red aircraft warning beacon (realistic — tall buildings need FAA red, not cyan)
+    const beacon=new THREE.PointLight(0xff2200, 2.4, 320, 2); beacon.position.set(40,260,-70); cityGroup.add(beacon);
+    world.crane={x:40,z:-70, beacon};
   })();
-  // The Ark — a billionaire's flood-proof arcology dome on the high ground (antagonist symbol).
+  // The Ark — a billionaire's flood-proof arcology dome. Pale white, lit from below with
+  // warm spotlights — the gleaming contrast to the gritty city below.
   (function theArk(){
     const dome=new THREE.Mesh(new THREE.SphereGeometry(34,20,12,0,Math.PI*2,0,Math.PI/2),
-      new THREE.MeshStandardMaterial({color:0xdfe9f2, roughness:0.15, metalness:0.5,
-        emissive:0x9fd4ff, emissiveIntensity:0.25}));
+      new THREE.MeshStandardMaterial({color:0xe8eef4, roughness:0.10, metalness:0.55,
+        emissive:0xfff0d8, emissiveIntensity:0.08}));
     dome.position.set(320,0,-70); cityGroup.add(dome);
     buildings.push({x:320,z:-70,hw:36});
-    const ring=new THREE.PointLight(0x9fd4ff,1.6,160,2); ring.position.set(320,30,-70); cityGroup.add(ring);
+    // Warm uplights (like museum/stadium lighting — not neon)
+    const ring=new THREE.PointLight(0xffd090, 1.8, 180, 2); ring.position.set(320,20,-70); cityGroup.add(ring);
     world.ark={x:320,z:-70};
   })();
-  // Lighthouse — Cayo Brava, with a sweeping beam.
+  // Lighthouse — Cayo Brava, with a sweeping white beam (real lighthouses are white).
   (function lighthouse(){
     const tower=new THREE.Mesh(new THREE.CylinderGeometry(3.5,5,40,12),
-      new THREE.MeshStandardMaterial({color:0xf2f4f8, roughness:0.6}));
+      new THREE.MeshStandardMaterial({color:0xf0f2f6, roughness:0.55}));
     tower.position.set(150,20,-410); cityGroup.add(tower); buildings.push({x:150,z:-410,hw:6});
-    const lamp=new THREE.PointLight(0xf9f871,2.4,300,2); lamp.position.set(150,42,-410); cityGroup.add(lamp);
+    // Lighthouse lamp: warm white (xenon/halogen), not yellow-neon
+    const lamp=new THREE.PointLight(0xfff5e0, 3.2, 380, 2); lamp.position.set(150,42,-410); cityGroup.add(lamp);
     world.lighthouse={x:150,z:-410, lamp};
   })();
   // Drawbridge towers — the set-piece on the big causeway.
+  // Police/emergency light bars are the legit source of red/blue neon.
   (function drawbridge(){
     for(const s of [-1,1]){
-      const t=new THREE.Mesh(new THREE.BoxGeometry(4,40,4), neonMat(0xff2a6d,0.6));
-      t.material.color.setHex(0x1a1d26);
+      const t=new THREE.Mesh(new THREE.BoxGeometry(4,40,4),
+        new THREE.MeshStandardMaterial({color:0x1e2230, roughness:0.7, metalness:0.3}));
       t.position.set(25+s*9,20,-220); cityGroup.add(t);
-      const lt=new THREE.PointLight(0xff2a6d,1.2,90,2); lt.position.set(25+s*9,40,-220); cityGroup.add(lt);
+      // Navigation lights: red port / green starboard (maritime realistic)
+      const navCol = s<0 ? 0xff2200 : 0x00cc44;
+      const lt=new THREE.PointLight(navCol, 1.0, 80, 2); lt.position.set(25+s*9,42,-220); cityGroup.add(lt);
+      // Small nav light mesh on top
+      const navMesh=new THREE.Mesh(new THREE.SphereGeometry(0.5,6,6),
+        new THREE.MeshStandardMaterial({color:navCol, emissive:navCol, emissiveIntensity:1.2}));
+      navMesh.position.set(25+s*9,42,-220); cityGroup.add(navMesh);
     }
     world.drawbridge={x:25,z:-220};
   })();
@@ -430,8 +621,17 @@ function boot(){
       f.mesh.position.y = 0.06 + reach*0.9;
     }
     sea.position.y = -0.6 + tide.level*0.5;
-    if(world.lighthouse){ const t=performance.now()*0.0009;   // sweeping beam
-      world.lighthouse.lamp.intensity = 1.4 + Math.abs(Math.sin(t))*1.8; }
+    const tSec = performance.now() * 0.001;
+    // Lighthouse: bright white flash every ~3 seconds (realistic lighthouse pattern)
+    if(world.lighthouse){
+      const phase = (tSec % 3.0) / 3.0;
+      world.lighthouse.lamp.intensity = phase < 0.12 ? 4.5 : (phase < 0.22 ? 4.5*(1-(phase-0.12)/0.10) : 0.15);
+    }
+    // Crane tower: slow red aircraft beacon flash (once per ~2 seconds)
+    if(world.crane){
+      const phase2 = (tSec % 2.0) / 2.0;
+      world.crane.beacon.intensity = phase2 < 0.08 ? 3.0 : Math.max(0, 3.0*(1-(phase2-0.08)/0.14));
+    }
   }
 
   /* ---------- car factory ---------- */
@@ -615,9 +815,13 @@ function boot(){
   function updatePolice(dt){
     for(const c of cars){
       if(!c.police||c.hp<=0) continue;
-      // flash lightbar
-      if(c.g.userData.lightbar){ const t=performance.now()*0.006;
-        c.g.userData.lightbar.material.emissive.setHex(Math.sin(t)>0?0xff0033:0x3366ff); }
+      // flash lightbar — real police colors: red and blue strobes
+      if(c.g.userData.lightbar){ const t=performance.now()*0.008;
+        // alternate faster on each side for realistic strobe effect
+        const side = Math.sin(t)>0;
+        c.g.userData.lightbar.material.emissive.setHex(side ? 0xff1100 : 0x1144ff);
+        c.g.userData.lightbar.material.emissiveIntensity = 1.4 + Math.abs(Math.sin(t*3))*0.8;
+      }
       const target=player.pos;
       const dx=target.x-c.g.position.x, dz=target.z-c.g.position.z;
       const dist=Math.hypot(dx,dz);
@@ -972,6 +1176,7 @@ function boot(){
     let dt=(now-last)/1000; last=now; dt=Math.min(dt,0.05);
     if(started){
       if(player.mode==='foot') updateFoot(dt); else updateDrive(dt);
+      updateTOD(dt);
       updateTide(dt);
       updatePeds(dt);
       maybeSpawnPolice(dt); updatePolice(dt);
@@ -983,7 +1188,7 @@ function boot(){
     } else {
       // idle orbit of the downtown skyline on the menu
       const t=now*0.0001; camera.position.set(40+Math.sin(t)*180, 120, -70+Math.cos(t)*180);
-      camera.lookAt(40,40,-70); updateTide(0.016);
+      camera.lookAt(40,40,-70); updateTOD(0.016); updateTide(0.016);
     }
     renderer.render(scene,camera);
   }
