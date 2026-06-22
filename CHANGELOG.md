@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 15 — Maturity & Market
+- Added three docs:
+  - 53 Decisions & Open Questions — the honest log of decisions-with-rationale,
+    genuinely-open questions, and the live risk-watch (the mark of a mature bible)
+  - 54 Level & Encounter Patterns — the "every space, three answers" rule plus a
+    reusable toolkit of spatial, encounter, sandbox, and readability patterns
+  - 55 Go-To-Market Plan — marketing principles, the beat plan, the deliberate
+    "trust beat," storefront hygiene, and anti-patterns
+- Updated README doc map.
+
 ## Round 14 — Experience & Encounters
 - Added three docs:
   - 50 Onboarding & Tutorial — teach-by-playing philosophy, the first-3-hours

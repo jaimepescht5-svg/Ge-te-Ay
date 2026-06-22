@@ -102,6 +102,9 @@ the full firewall.
 | [50 — Onboarding & Tutorial](docs/50-onboarding-and-tutorial.md) | Teaching the sandbox by playing it |
 | [51 — Enemy & Faction Roster](docs/51-enemy-and-faction-roster.md) | The forces that push back |
 | [52 — The Player Journey](docs/52-player-journey.md) | The felt experience, minute one to credits |
+| [53 — Decisions & Open Questions](docs/53-open-questions-and-decisions.md) | What we chose, what's still open, what we're watching |
+| [54 — Level & Encounter Patterns](docs/54-level-design-patterns.md) | Reusable spatial & encounter design toolkit |
+| [55 — Go-To-Market Plan](docs/55-go-to-market.md) | The marketing campaign and trust strategy |
 
 ---
 
