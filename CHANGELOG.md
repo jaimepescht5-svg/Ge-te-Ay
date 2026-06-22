@@ -2,6 +2,19 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 6 — The `viz` Tool + First Taste Pass
+- Added **`tools/viz/`**, a reusable visual-check harness that makes the
+  "render → AI glances it → human confirms" loop a single command: run a Godot
+  scene headlessly (Xvfb + software GL), stitch frames into one **contact sheet**
+  (AI review) and an **MP4/GIF clip** (human confirmation on a phone). Includes
+  a drop-in `capture.gd` autoload so it works on *any* Godot scene.
+- Wired the slice to honour `$VIZ_OUT` so the tool controls frame output, and
+  added env-overridable capture interval / frame cap.
+- **First human taste pass**: the driving read as "an F1 car." Retuned toward a
+  heavy **street car** — more mass (1500 kg), less grip, lazier steering — then
+  re-ran the self-check loop to re-land clean three-lap passes at the new,
+  slower, slidier feel. Refreshed prototype media to match.
+
 ## Round 5 — From Paper to a Playable, Self-Observing Slice
 - The bible left the page: built a **real-engine playable prototype** of the
   signature verb (driving) under `prototype/neon-delta-slice/`, running on

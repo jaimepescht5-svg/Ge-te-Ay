@@ -11,12 +11,14 @@ extends Node3D
 # binary .tscn, which also makes diffs in the design repo meaningful.
 
 # ---- tunables (the "feel" of the verb — the part the human judge owns) ----
-const ENGINE_POWER := 3600.0     # Newtons; ~3.3 m/s^2 on an 1100 kg body
-const BRAKE_POWER := 45.0
-const MAX_STEER := 0.55          # rad (~31 deg)
-const STEER_SPEED := 6.5         # how fast the wheels turn toward target
-const CAR_MASS := 1100.0
-const WHEEL_FRICTION := 6.0      # higher = more grip, less slide
+# Street-car feel: a heavy car that has to be set up for corners and can slide,
+# NOT a stuck-to-the-road F1 car. Weight + lower grip + lazier steering.
+const ENGINE_POWER := 4400.0     # Newtons; ~2.9 m/s^2 on a 1500 kg body
+const BRAKE_POWER := 40.0
+const MAX_STEER := 0.40          # rad (~23 deg) — less darty
+const STEER_SPEED := 4.0         # slower wheel response = more weight
+const CAR_MASS := 1500.0
+const WHEEL_FRICTION := 3.6      # lower = more slide / less F1 stick
 
 # ---- track ----
 const HALF_W := 120.0
@@ -34,6 +36,7 @@ var mode := "play"
 var selfcheck_seconds := SELFCHECK_SECONDS
 var capture_interval := CAPTURE_INTERVAL
 var capture_max := 40
+var frames_dir := "user://frames"
 var track: TrackGeometry
 var bot: DriverBot
 var car: VehicleBody3D
@@ -81,6 +84,10 @@ func _ready() -> void:
 	var cm := OS.get_environment("CAP_MAX")
 	if cm != "":
 		capture_max = int(cm)
+	# let the viz tool redirect frame output (tools/viz)
+	var vo := OS.get_environment("VIZ_OUT")
+	if vo != "":
+		frames_dir = vo
 	randomize()
 	track = TrackGeometry.new(HALF_W, HALF_H, CORNER_R, ROAD_WIDTH, TRACK_SAMPLES, CHECKPOINTS)
 	bot = DriverBot.new(track)
@@ -429,8 +436,8 @@ func _capture_frame() -> void:
 	if tex == null:
 		return
 	var img := tex.get_image()
-	DirAccess.make_dir_recursive_absolute("user://frames")
-	img.save_png("user://frames/frame_%03d.png" % capture_index)
+	DirAccess.make_dir_recursive_absolute(frames_dir)
+	img.save_png("%s/frame_%04d.png" % [frames_dir, capture_index])
 	capture_index += 1
 
 # ---------------------------------------------------------------- selfcheck
