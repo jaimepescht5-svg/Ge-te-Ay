@@ -11,7 +11,22 @@ it your way, across a living city that never stops moving.
 
 This repository is the **living design bible** for the game: vision, world,
 characters, story, systems, economy, and the technical and legal scaffolding
-that keeps it an original work.
+that keeps it an original work — **plus a real, playable 3D prototype.**
+
+---
+
+## ▶ Play it now (3D prototype)
+
+There's an actual, runnable 3D open-world build in [`game/`](game/) — drive,
+walk, shoot, draw a wanted level, lose the cops, and run delivery jobs around a
+neon city. Built with Three.js (WebGL), no install needed:
+
+```bash
+cd game && python3 -m http.server 8000   # then open http://localhost:8000
+```
+
+(Or just open `game/index.html` in a desktop browser.) Full controls and details
+in [`game/README.md`](game/README.md).
 
 ---
 

@@ -2,6 +2,21 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 16 — IT'S PLAYABLE: 3D prototype
+- Built an actual, runnable **3D open-world game** in `game/` using Three.js
+  (WebGL), self-contained in a single `index.html`, no build step:
+  - Procedural neon city (block grid, glowing signs, fog, traffic, pedestrians)
+  - Arcade **driving** (steal any car, handbrake, Redline boost) + **on-foot**
+    third-person movement, with enter/exit
+  - Hitscan **shooting** with tracers and muzzle flashes
+  - **Heat / wanted system** (0–5★) with police cars that spawn and chase, can be
+    wrecked or lost; Heat cools when lying low
+  - **Delivery jobs** for cash, HUD, minimap, and a synth radio
+- Added `game/README.md` (run instructions + controls) and featured the prototype
+  at the top of the main README.
+- Note: this round began as content expansion (doc 56 Extended Heists) and pivoted
+  to building the actual game on request.
+
 ## Round 15 — Maturity & Market
 - Added three docs:
   - 53 Decisions & Open Questions — the honest log of decisions-with-rationale,
