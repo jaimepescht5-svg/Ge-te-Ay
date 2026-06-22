@@ -58,6 +58,8 @@ proves the rest of the crime-sandbox loop in the same self-observing way:
 - **Shooting** — a raycast gun with destructible targets (left-click to fire).
 - **Heat** — a 0–5 wanted level that rises when you commit crimes, spawns
   pursuers that chase you, and decays once you stay clean.
+- **Enter/exit car** — walk up to the car, **F** to get in and drive a real
+  `VehicleBody3D` (WASD), **F** again to get out — the core GTA loop.
 
 ```bash
 # DRIVE-FREE: walk it yourself  (W A S D move · Shift run · click shoot · R reset)
@@ -71,12 +73,13 @@ tools/selfcheck_foot.sh                 # rendered, captures frames
 tools/selfcheck_foot.sh --headless      # logic/telemetry only
 ```
 
-`selfcheck_foot.sh` asserts **13 invariants**: physics stable, moved far enough,
+`selfcheck_foot.sh` asserts **16 invariants**: physics stable, moved far enough,
 sane walk speed, reached every waypoint, stayed grounded (no fall-through /
 launch), fired the gun, destroyed every target, decent aim, crimes raised Heat,
-Heat spawned a pursuer, the pursuer closed in, Heat decays when clean, and frames
-were captured. It writes `sandbox_selfcheck.json` + `frames_foot/`. The driving
-slice is untouched and still has its own `selfcheck.sh`.
+Heat spawned a pursuer, the pursuer closed in, Heat decays when clean, **got in a
+car, drove it >15 m, got back out on foot**, and frames were captured. It writes
+`sandbox_selfcheck.json` + `frames_foot/`. The driving slice is untouched and
+still has its own `selfcheck.sh`.
 
 ## What the loop checks by itself
 
