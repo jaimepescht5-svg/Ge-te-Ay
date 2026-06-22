@@ -56,14 +56,23 @@ Click the title screen to start (this also locks the mouse and starts audio).
   *Downtown Core* (glass towers), *The Cut* (canal rowhouses — your spawn/home
   turf), *Marisol Heights* (dry mansions), *The Reach* (industrial), *Cayo Brava*
   (the keys), *Bayou Verde* (the swamp), and *Sabal Springs* (the suburb).
-- **The sea & causeways** — the districts are islands stitched together by
+- **The sea, causeways & boats** — the districts are islands stitched together by
   **bridges** you drive across; the water is a hard edge (cars and cops can't swim).
+  **Steal a boat** moored at the marinas (press **F**) to cut straight across the
+  sea between islands and ride the tide ([vehicles](../docs/08-vehicles.md)).
+- **Boatable canals** — **The Cut** is threaded by working **canals** that connect
+  to the open sea: boats glide through them, cars can't, and road **bridges** keep
+  the district drivable ([The Cut](../docs/33-district-deepdive-the-cut.md)).
 - **Landmarks for navigation** — the **Crane Tower**, **The Ark** arcology, the
   **Lighthouse**, the **Drawbridge**, and the **Dead Mall** anchor the map so you
   build it in your head ([art direction](../docs/15-art-direction.md)).
 - **A living tide** — a dynamic **tide cycle** that rises and floods the low-lying
   districts (The Cut, the Reach, Cayo Brava, the Glades) while the high ground
   stays dry — the bible's thesis rendered as level geometry ([world](../docs/02-setting-world.md)).
+- **The hurricane** — on a long cycle a **named hurricane** rolls in: skies darken,
+  **rain** falls, **lightning** cracks, a **storm surge** floods the low ground
+  past its normal tide line, crowds **evacuate**, and the police **thin out**. The
+  season's set-piece, with a live HUD warning ([world](../docs/02-setting-world.md)).
 - **Driving** — steal any car and tear around with arcade handling, a handbrake,
   and a Redline boost ([vehicles](../docs/08-vehicles.md)).
 - **On-foot** — walk, sprint, and shoot in third person.
@@ -84,10 +93,9 @@ bible. It proves the core loop — *drive, shoot, draw heat, lose the cops, get
 paid* — in a real, **districted 3D world** you can move around in. It deliberately
 keeps to one self-contained file with no build step so anyone can run it in seconds.
 
-Natural next steps (see the bible): **boats** to use the tide and canals for
-traversal, the **hurricane** storm climax on top of the tide ([doc 02](../docs/02-setting-world.md)),
-the three switchable leads ([doc 03](../docs/03-characters.md)), the four-phase
-heists ([doc 07](../docs/07-missions.md)), and better art/audio.
+Natural next steps (see the bible): the three switchable leads as a true mid-mission
+**switch** ([doc 03](../docs/03-characters.md)), the four-phase **heists**
+([doc 07](../docs/07-missions.md)), and better art/audio.
 
 ---
 

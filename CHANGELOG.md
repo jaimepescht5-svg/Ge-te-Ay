@@ -2,9 +2,14 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
-## Round 18 — SCAFFOLDING: the AI-agent operating layer
-- Made this an *explicitly* AI-built project by adding the connective tissue that
-  parallel agents need to converge instead of collide:
+## Round 21 — INTEGRATION + SCAFFOLDING: one canonical base + the AI-agent operating layer
+- **Integrated the parallel agent branches into one base**: the districted-world
+  game (Round 17), boats + hurricane + boatable canals (Rounds 18–19,
+  `building-world`), and the advanced verbs sandbox (Round 20, `transgenor`) now
+  live together with the full design bible. `gta-inspired-game-design` held no
+  unique content and was folded in implicitly.
+- **Added the connective tissue parallel agents need to converge instead of
+  collide:**
   - **`CLAUDE.md`** — the operating guide every agent reads on entry: project
     summary, repo map, the non-negotiable promises, the **taste wall** (you own
     correctness + playability; a human owns delight), the self-observation loop,
@@ -25,6 +30,32 @@ This log tracks the iterative expansion of the design. Newest at top.
     rules, the gate, and a live readiness report (python3 / xvfb / engine).
   - Root **`.gitignore`** + **`.editorconfig`**; README now has an "AI agents
     start here" section and the doc map is current through 56–57.
+
+## Round 20 — Verbs sandbox: enter/exit cars, mouse-look aiming, neon pass
+- In the Godot **verbs sandbox** (`prototype/neon-delta-slice/`), unified on-foot
+  and driving into the core GTA loop: **enter/exit vehicles** so you can walk up,
+  commandeer a car, drive, and step back out — the signature open-world verb in a
+  real engine.
+- **Mouse-look aiming** with a crosshair and a gunshot sound in play mode, plus a
+  **neon visual pass** on the sandbox. The foot-bot and self-check were extended
+  to exercise the new enter/exit flow.
+
+## Round 19 — Boatable canals in The Cut
+- The Cut's canals are now **real water** carved out of the district: boats can
+  navigate them, cars/cops/pedestrians can't, and the channels **connect to the
+  open sea** at both ends so you can boat in off the bay. Central **road bridges**
+  keep the district drivable. Verified sea-to-sea continuity and bridge solidity.
+
+## Round 18 — Boats & the hurricane
+- **Boats**: water vehicles moored at six marinas around the islands. Press **F**
+  to commandeer one and cross the open sea between districts — boats are blocked
+  by land (the inverse of cars), ride the tide, and bob in the chop. Shared
+  vehicle code with cars; disembarking always steps you onto solid ground.
+- **The hurricane season** (docs/02 climax): on a long cycle a **named hurricane**
+  builds, peaks at the eye, and passes — darkening skies, falling **rain**,
+  **lightning**, a **storm surge** that floods the low ground beyond its tidal
+  line, **evacuating** crowds, and **thinning** police. Live HUD warning, with the
+  surge folded into the tide system so flooding and the minimap react to it.
 
 ## Round 17 — BUILDING THE WORLD: a real city, not a grid
 - Replaced the prototype's flat, uniform neon grid with **Port Soleil as a
