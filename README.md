@@ -121,6 +121,27 @@ the full firewall.
 | [53 — Decisions & Open Questions](docs/53-open-questions-and-decisions.md) | What we chose, what's still open, what we're watching |
 | [54 — Level & Encounter Patterns](docs/54-level-design-patterns.md) | Reusable spatial & encounter design toolkit |
 | [55 — Go-To-Market Plan](docs/55-go-to-market.md) | The marketing campaign and trust strategy |
+| [56 — Extended Heists](docs/56-extended-heists.md) | Additional marquee scores beyond the core nine |
+| [57 — Repository & Build Structure](docs/57-repository-and-build-structure.md) | How the repo is laid out, run, and verified |
+
+---
+
+## 🤖 Building this (AI agents start here)
+
+This project is built and maintained almost entirely by **AI agents** working in
+parallel. Before you touch anything:
+
+- **[`CLAUDE.md`](CLAUDE.md)** — the operating guide: the rules that don't bend,
+  the *taste wall*, and the commands that prove your work.
+- **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — branch & integration workflow, gates,
+  and the definition of done.
+- **[`docs/57-repository-and-build-structure.md`](docs/57-repository-and-build-structure.md)**
+  — where everything lives and how to run it.
+
+```bash
+make help     # every task        make serve   # play the web build
+make check    # the gate          make slice   # play the engine slice
+```
 
 ---
 

@@ -95,6 +95,16 @@ If we break these, we've failed regardless of anything else:
   [34](34-economy-balance.md)).
 - **No crunch as a plan** ([20](20-tech-and-production.md)).
 
+## Building this repo (for AI agents)
+
+This project is built mostly by AI agents in parallel. The operating layer lives
+at the repo root: **[CLAUDE.md](../CLAUDE.md)** (rules, the taste wall, commands),
+**[CONTRIBUTING.md](../CONTRIBUTING.md)** (branch + integration workflow, gates),
+and **[57 — Repository & Build Structure](57-repository-and-build-structure.md)**
+(where everything lives and how to run/verify it). The method behind it all is
+**[24 — AI Development & Self-Observation](24-ai-development-and-self-observation.md)**.
+Run `make help` for every task; `make check` is the gate.
+
 ## Build history
 
 See [CHANGELOG.md](../CHANGELOG.md) for how this bible was built, round by round.

@@ -1,0 +1,32 @@
+# ── NEON DELTA — repo-wide ignores ──
+# Engine binaries and import caches are machine-local and FETCHED, never committed.
+engine/
+.godot/
+*.import
+
+# Local run artifacts: telemetry, captured frames, contact sheets, clips, plots.
+out/
+frames/
+frames_*/
+*.tmp
+/tmp_*
+nd_frames/
+*.mp4
+*.gif
+!prototype/neon-delta-slice/media/*   # committed sample media is kept on purpose
+
+# Python tooling (tools/viz, checks)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Claude Code local overrides (shared settings.json IS committed)
+.claude/settings.local.json

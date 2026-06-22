@@ -2,6 +2,30 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 18 — SCAFFOLDING: the AI-agent operating layer
+- Made this an *explicitly* AI-built project by adding the connective tissue that
+  parallel agents need to converge instead of collide:
+  - **`CLAUDE.md`** — the operating guide every agent reads on entry: project
+    summary, repo map, the non-negotiable promises, the **taste wall** (you own
+    correctness + playability; a human owns delight), the self-observation loop,
+    and the command list.
+  - **`CONTRIBUTING.md`** — branch naming, the changelog-as-shared-memory rule,
+    the integration workflow for converging parallel branches, the gate
+    (`make check`), and the definition of done.
+  - **`docs/57-repository-and-build-structure.md`** — the authoritative repo map,
+    "where new work goes," and the rig diagram; linked from the README map and
+    `00-index.md`.
+  - **`Makefile`** — one-word tasks (`serve`, `check`, `engine`, `slice`,
+    `selfcheck`, `viz`, `docs`); engine targets degrade gracefully when Godot
+    isn't fetched.
+  - **`tools/check.sh`** + **`tools/check_links.py`** — the umbrella gate: always
+    validates internal doc links; runs the driving + on-foot self-checks when the
+    engine is present. Exits non-zero on any breach (CI-gradeable).
+  - **`.claude/`** — a SessionStart hook that greets every (web) session with the
+    rules, the gate, and a live readiness report (python3 / xvfb / engine).
+  - Root **`.gitignore`** + **`.editorconfig`**; README now has an "AI agents
+    start here" section and the doc map is current through 56–57.
+
 ## Round 17 — BUILDING THE WORLD: a real city, not a grid
 - Replaced the prototype's flat, uniform neon grid with **Port Soleil as a
   districted archipelago** — the bible's #1 pillar ("The City Is the Star") made
