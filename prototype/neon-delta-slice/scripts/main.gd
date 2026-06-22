@@ -150,6 +150,10 @@ var rng := RandomNumberGenerator.new()
 # shooting
 var shots_fired := 0
 
+# traffic (civilian NPC cars)
+var civilians: Array = []   # {car: VehicleBody3D, bot: WaypointBot}
+var civ_palette := [0xff2a6d, 0xffffff, 0xf9f871, 0x05d9e8, 0xc0c0c0, 0x1a2a6b]
+
 # lead character (cosmetic only)
 var leads := ["RAE", "THEO", "FRANKIE"]
 var lead_idx := 0
@@ -191,6 +195,7 @@ func _ready() -> void:
 	_build_player()
 	_build_camera()
 	_build_hud()
+	_build_traffic()
 
 	bot = WaypointBot.new(WP)
 	in_car = true
@@ -873,6 +878,7 @@ func _physics_process(delta: float) -> void:
 	_handle_enter_exit()
 	_update_heat(delta)
 	_update_pursuers(delta)
+	_update_traffic(delta)
 	_update_telemetry(delta)
 	if mode == "selfcheck":
 		_selfcheck_tick(delta)
@@ -1072,13 +1078,18 @@ func _spawn_pursuer() -> void:
 	var bm := BoxMesh.new()
 	bm.size = Vector3(CAR_W, CAR_H - 0.1, CAR_LEN)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.05, 0.85, 0.91)   # cyan = the law
-	mat.emission_enabled = true
-	mat.emission = Color(0.05, 0.85, 0.91)
-	mat.emission_energy_multiplier = 0.6
+	mat.albedo_color = Color(0.04, 0.04, 0.05)   # black body — interceptor
 	mesh.material_override = mat
 	mesh.position.y = CAR_H * 0.5
 	cop.add_child(mesh)
+	# flashing light bar: two small boxes that strobe cyan/magenta
+	var bar_l := _make_lightbar(Vector3(-0.5, CAR_H + 0.15, 0.0))
+	var bar_r := _make_lightbar(Vector3(0.5, CAR_H + 0.15, 0.0))
+	cop.add_child(bar_l)
+	cop.add_child(bar_r)
+	cop.set_meta("bar_l", bar_l)
+	cop.set_meta("bar_r", bar_r)
+	cop.set_meta("hits", 0)
 	var wx := CAR_W * 0.5 - 0.15
 	var wz := CAR_LEN * 0.5 - 1.0
 	_add_wheel(cop, Vector3(-wx, 0.0, -wz), true, true)
@@ -1091,6 +1102,41 @@ func _spawn_pursuer() -> void:
 	add_child(cop)
 	pursuers.append(cop)
 	pursuers_spawned += 1
+
+func _make_lightbar(pos: Vector3) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.8, 0.18, 0.5)
+	m.mesh = bm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.05, 0.85, 0.91)
+	mat.emission_enabled = true
+	mat.emission = Color(0.05, 0.85, 0.91)
+	mat.emission_energy_multiplier = 3.0
+	m.material_override = mat
+	m.position = pos
+	return m
+
+# Strobe the police light bars cyan<->magenta on a sin timer (render-only).
+func _update_police_lights() -> void:
+	if headless or pursuers.is_empty():
+		return
+	var t := sin(sim_time * 8.0) > 0.0
+	var cyan := Color(0.05, 0.85, 0.91)
+	var mag := Color(1.0, 0.16, 0.83)
+	for cop in pursuers:
+		if not is_instance_valid(cop):
+			continue
+		var bl: MeshInstance3D = cop.get_meta("bar_l")
+		var br: MeshInstance3D = cop.get_meta("bar_r")
+		if bl == null or br == null:
+			continue
+		var ml: StandardMaterial3D = bl.material_override
+		var mr: StandardMaterial3D = br.material_override
+		ml.emission = cyan if t else mag
+		ml.albedo_color = ml.emission
+		mr.emission = mag if t else cyan
+		mr.albedo_color = mr.emission
 
 func _update_pursuers(_delta: float) -> void:
 	var tgt := _active_pos()
@@ -1114,6 +1160,108 @@ func _update_pursuers(_delta: float) -> void:
 			cop.engine_force = 0.0
 			cop.brake = BRAKE_POWER * 0.5
 
+# ----------------------------------------------------------------- traffic
+# 14 civilian NPC cars, each looping a 4-6 point sub-route inside one district.
+# They are real VehicleBody3D bodies (physical collisions with the player) but
+# ignore Heat and never chase — they just cruise their loop forever.
+func _build_traffic() -> void:
+	# Traffic is a play-mode feature. In selfcheck the bot must tour 7 districts
+	# under realtime headless physics; a fleet of extra VehicleBody3D solvers
+	# pushes the sim below realtime and starves the waypoint loop. Skip it there.
+	if mode != "play":
+		return
+	var per_district := 2
+	var idx := 0
+	for d in DISTRICTS:
+		# skip the least-urban / watery districts for traffic density
+		if d["id"] == "bayou" or d["id"] == "cayo":
+			continue
+		for n in range(per_district):
+			_spawn_civilian(d, idx)
+			idx += 1
+
+func _spawn_civilian(d: Dictionary, idx: int) -> void:
+	var car_c := VehicleBody3D.new()
+	car_c.mass = 1200.0
+	car_c.center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+	car_c.center_of_mass = Vector3(0, -0.55, 0)
+	var sw := CAR_W * 0.92
+	var sl := CAR_LEN * 0.9
+	var sh := CAR_H * 0.92
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(sw, sh, sl)
+	col.shape = box
+	col.position.y = sh * 0.5
+	car_c.add_child(col)
+	var mesh := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(sw, sh - 0.1, sl)
+	var color: int = civ_palette[idx % civ_palette.size()]
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = _hex(color)
+	mat.metallic = 0.4
+	mat.roughness = 0.45
+	mesh.material_override = mat
+	mesh.position.y = sh * 0.5
+	car_c.add_child(mesh)
+	var wx := sw * 0.5 - 0.15
+	var wz := sl * 0.5 - 1.0
+	_add_wheel(car_c, Vector3(-wx, 0.0, -wz), true, true)
+	_add_wheel(car_c, Vector3(wx, 0.0, -wz), true, true)
+	_add_wheel(car_c, Vector3(-wx, 0.0, wz), true, false)
+	_add_wheel(car_c, Vector3(wx, 0.0, wz), true, false)
+	# build a small local loop within the district
+	var loop := _civ_loop(d)
+	car_c.position = Vector3(loop[0].x, 1.5, loop[0].y)
+	car_c.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	add_child(car_c)
+	var b = WaypointBot.new(loop)
+	civilians.append({"car": car_c, "bot": b})
+
+# A closed 4-6 point loop inside a district's drivable cross (the road-clear band).
+func _civ_loop(d: Dictionary) -> PackedVector2Array:
+	var cx: float = d["cx"]
+	var cz: float = d["cz"]
+	var hw: float = d["w"] * 0.5 - 18.0
+	var hd: float = d["d"] * 0.5 - 18.0
+	# rectangle loop hugging the central clear cross so it stays drivable
+	var pts := PackedVector2Array([
+		Vector2(cx - hw * 0.5, cz - hd * 0.5),
+		Vector2(cx + hw * 0.5, cz - hd * 0.5),
+		Vector2(cx + hw * 0.5, cz + hd * 0.5),
+		Vector2(cx - hw * 0.5, cz + hd * 0.5),
+		Vector2(cx - hw * 0.5, cz - hd * 0.5),
+	])
+	return pts
+
+func _update_traffic(_delta: float) -> void:
+	var pp := _active_pos()
+	for entry in civilians:
+		var c: VehicleBody3D = entry["car"]
+		if not is_instance_valid(c):
+			continue
+		# performance: freeze distant civilians so their wheel raycasts/solver cost
+		# drops out entirely (rule 5). Unfreeze when the player gets near.
+		var far := Vector2(c.global_position.x - pp.x, c.global_position.z - pp.z).length() > 130.0
+		if far:
+			if not c.freeze:
+				c.freeze = true
+			continue
+		if c.freeze:
+			c.freeze = false
+		var b = entry["bot"]
+		var pos := Vector2(c.global_position.x, c.global_position.z)
+		var fwd := -c.global_transform.basis.z
+		var fwd2 := Vector2(fwd.x, fwd.z).normalized()
+		var ctrl: Dictionary = b.control(pos, fwd2, c.linear_velocity.length())
+		b.advance_if_close(pos)
+		if b.wp_idx >= b.waypoints.size() - 1:
+			b.wp_idx = 0   # loop forever
+		c.steering = -ctrl["steer"] * MAX_STEER
+		c.engine_force = ctrl["throttle"] * 1400.0
+		c.brake = ctrl["brake"] * 30.0
+
 # ----------------------------------------------------------------- telemetry
 func _update_telemetry(_delta: float) -> void:
 	var p3 := _active_pos()
@@ -1131,6 +1279,7 @@ func _update_telemetry(_delta: float) -> void:
 func _process(_d: float) -> void:
 	_update_camera()
 	_update_hud()
+	_update_police_lights()
 
 func _update_camera() -> void:
 	if cam == null or not cam.is_inside_tree():
