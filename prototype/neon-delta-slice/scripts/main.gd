@@ -150,6 +150,18 @@ var rng := RandomNumberGenerator.new()
 # shooting
 var shots_fired := 0
 
+# weapons (dicts can't be const — use var)
+var weapons := [
+	{"name": "PISTOL",  "damage": 25, "range": 80.0,  "rof": 0.4,  "ammo": 12, "mag": 12, "reserve": 48, "heat": 0.5, "spread": 0.02, "pellets": 1, "auto": false},
+	{"name": "SHOTGUN", "damage": 80, "range": 25.0,  "rof": 0.9,  "ammo": 6,  "mag": 6,  "reserve": 24, "heat": 0.8, "spread": 0.15, "pellets": 6, "auto": false},
+	{"name": "SMG",     "damage": 15, "range": 60.0,  "rof": 0.08, "ammo": 30, "mag": 30, "reserve": 120,"heat": 0.3, "spread": 0.06, "pellets": 1, "auto": true},
+	{"name": "RIFLE",   "damage": 60, "range": 200.0, "rof": 0.6,  "ammo": 8,  "mag": 8,  "reserve": 32, "heat": 0.6, "spread": 0.005,"pellets": 1, "auto": false},
+]
+var weapon_idx := 0
+var fire_cooldown := 0.0
+var f_held := false
+var ammo_crates: Array = []   # {node, timer:float, active:bool}
+
 # traffic (civilian NPC cars)
 var civilians: Array = []   # {car: VehicleBody3D, bot: WaypointBot}
 var civ_palette := [0xff2a6d, 0xffffff, 0xf9f871, 0x05d9e8, 0xc0c0c0, 0x1a2a6b]
@@ -208,6 +220,7 @@ func _ready() -> void:
 	_build_traffic()
 	_build_peds()
 	_build_minimap()
+	_build_ammo_crates()
 
 	bot = WaypointBot.new(WP)
 	in_car = true
@@ -941,6 +954,9 @@ func _setup_input() -> void:
 	_action("enter_exit", [KEY_E])
 	_action("shoot", [KEY_F])
 	_action("switch_lead", [KEY_TAB])
+	_action("weapon_prev", [KEY_Z])
+	_action("weapon_next", [KEY_X])
+	_action("mission", [KEY_M])
 
 func _action(name: String, keys: Array) -> void:
 	if not InputMap.has_action(name):
@@ -994,12 +1010,29 @@ func _physics_process(delta: float) -> void:
 	_update_traffic(delta)
 	_update_peds(delta)
 	_update_telemetry(delta)
+	if fire_cooldown > 0.0:
+		fire_cooldown -= delta
+	_update_ammo_crates(delta)
 	if mode == "selfcheck":
 		_selfcheck_tick(delta)
-	if mode == "play" and Input.is_action_just_pressed("reset"):
-		_respawn_in_car()
-	if mode == "play" and Input.is_action_just_pressed("switch_lead"):
+	if mode == "play":
+		_handle_play_keys()
+
+func _handle_play_keys() -> void:
+	# R: reload on foot, respawn in car
+	if Input.is_action_just_pressed("reset"):
+		if in_car:
+			_respawn_in_car()
+		else:
+			_reload()
+	if Input.is_action_just_pressed("switch_lead"):
 		lead_idx = (lead_idx + 1) % leads.size()
+	if Input.is_action_just_pressed("weapon_prev"):
+		_cycle_weapon(-1)
+	if Input.is_action_just_pressed("weapon_next"):
+		_cycle_weapon(1)
+	if Input.is_action_just_pressed("mission"):
+		_accept_next_mission()
 
 # ----------------------------------------------------------------- tide
 func _update_tide(delta: float) -> void:
@@ -1073,13 +1106,17 @@ func _foot_physics(delta: float) -> void:
 		var want := atan2(v.x, v.z)
 		player_yaw = _lerp_angle(player_yaw, want, TURN_SPEED * delta)
 		player_body.rotation.y = player_yaw
-	if c["fire"]:
+	# auto weapons fire while F held; others on the press edge
+	if _cur_weapon()["auto"]:
+		if c["fire_held"]:
+			_shoot()
+	elif c["fire"]:
 		_shoot()
 
 func _player_foot_controls() -> Dictionary:
 	if mode != "play":
 		# the bot never goes on foot; stay idle
-		return {"move": Vector2.ZERO, "run": false, "fire": false}
+		return {"move": Vector2.ZERO, "run": false, "fire": false, "fire_held": false}
 	var mv := Vector2.ZERO
 	mv.y -= Input.get_action_strength("accel")
 	mv.y += Input.get_action_strength("brake")
@@ -1088,7 +1125,8 @@ func _player_foot_controls() -> Dictionary:
 	if mv.length() > 1.0:
 		mv = mv.normalized()
 	return {"move": mv, "run": Input.is_action_pressed("run"),
-			"fire": Input.is_action_just_pressed("shoot")}
+			"fire": Input.is_action_just_pressed("shoot"),
+			"fire_held": Input.is_action_pressed("shoot")}
 
 # ----------------------------------------------------------------- enter / exit
 func _handle_enter_exit() -> void:
@@ -1126,35 +1164,208 @@ func _respawn_in_car() -> void:
 	steer_current = 0.0
 
 # ----------------------------------------------------------------- shooting
+func _cur_weapon() -> Dictionary:
+	return weapons[weapon_idx]
+
+func _cycle_weapon(dir: int) -> void:
+	weapon_idx = (weapon_idx + dir + weapons.size()) % weapons.size()
+
+func _reload() -> void:
+	var w := _cur_weapon()
+	var need: int = w["mag"] - w["ammo"]
+	if need <= 0 or w["reserve"] <= 0:
+		return
+	var take: int = mini(need, w["reserve"])
+	w["ammo"] += take
+	w["reserve"] -= take
+
+# Fire the current weapon (respecting rate-of-fire & ammo). Called when F pressed
+# (or held, for auto weapons).
 func _shoot() -> void:
+	if fire_cooldown > 0.0:
+		return
+	var w := _cur_weapon()
+	if w["ammo"] <= 0:
+		return
+	w["ammo"] -= 1
 	shots_fired += 1
-	var origin := cam.global_position
-	var aim := -cam.global_transform.basis.z
-	var from := origin + aim * 1.0
-	var to := from + aim * GUN_RANGE
-	var space := get_world_3d().direct_space_state
-	var q := PhysicsRayQueryParameters3D.create(from, to)
-	q.exclude = [player_body.get_rid()]
-	var hit := space.intersect_ray(q)
-	var hit_point: Vector3 = to
-	var hit_collider = null
-	if hit.has("position"):
-		hit_point = hit["position"]
-		hit_collider = hit.get("collider")
-	heat = minf(HEAT_MAX, heat + HEAT_PER_SHOT)
-	# a shot that strikes a pedestrian adds extra heat
-	if hit_collider != null and _is_ped(hit_collider):
-		heat = minf(HEAT_MAX, heat + 1.5)
+	fire_cooldown = w["rof"]
+	heat = minf(HEAT_MAX, heat + w["heat"])
 	heat_peak = maxf(heat_peak, heat)
 	heat_clean_timer = 0.0
-	_scatter_peds(hit_point)
-	_spawn_tracer(from, hit_point)
+
+	var origin := cam.global_position
+	var base_aim := -cam.global_transform.basis.z
+	var from := origin + base_aim * 1.0
+	var pellets: int = w["pellets"]
+	var spread: float = w["spread"]
+	var rng_w: float = w["range"]
+	for p in range(pellets):
+		var aim := base_aim
+		if spread > 0.0:
+			aim = (base_aim
+				+ cam.global_transform.basis.x * rng.randf_range(-spread, spread)
+				+ cam.global_transform.basis.y * rng.randf_range(-spread, spread)).normalized()
+		var to := from + aim * rng_w
+		var space := get_world_3d().direct_space_state
+		var q := PhysicsRayQueryParameters3D.create(from, to)
+		q.exclude = [player_body.get_rid()]
+		var hit := space.intersect_ray(q)
+		var hit_point: Vector3 = to
+		var hit_collider = null
+		if hit.has("position"):
+			hit_point = hit["position"]
+			hit_collider = hit.get("collider")
+		if hit_collider != null:
+			if _is_ped(hit_collider):
+				heat = minf(HEAT_MAX, heat + 1.5)
+				_scatter_peds(hit_point)
+			elif _is_pursuer(hit_collider):
+				_hit_pursuer(hit_collider)
+			else:
+				_spawn_impact_spark(hit_point)
+		_scatter_peds(hit_point)
+		_spawn_tracer(from, hit_point)
+	_spawn_muzzle_flash(from)
 
 func _is_ped(node) -> bool:
 	for ped in peds:
 		if ped["body"] == node:
 			return true
 	return false
+
+func _is_pursuer(node) -> bool:
+	return pursuers.has(node)
+
+func _spawn_muzzle_flash(pos: Vector3) -> void:
+	if headless:
+		return
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.1)
+	light.light_energy = 8.0
+	light.omni_range = 6.0
+	light.position = pos
+	add_child(light)
+	get_tree().create_timer(0.05).timeout.connect(light.queue_free)
+
+func _spawn_impact_spark(pos: Vector3) -> void:
+	if headless:
+		return
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 1.0, 1.0)
+	light.light_energy = 6.0
+	light.omni_range = 3.0
+	light.position = pos
+	add_child(light)
+	get_tree().create_timer(0.05).timeout.connect(light.queue_free)
+
+# Register a hit on a police pursuer; 3 hits destroys it (explosion VFX).
+func _hit_pursuer(cop) -> void:
+	if not is_instance_valid(cop):
+		return
+	var hits: int = cop.get_meta("hits", 0) + 1
+	cop.set_meta("hits", hits)
+	_spawn_impact_spark(cop.global_position + Vector3(0, 1.0, 0))
+	if hits >= 3:
+		_explode_pursuer(cop)
+
+func _explode_pursuer(cop) -> void:
+	if not is_instance_valid(cop):
+		return
+	var pos: Vector3 = cop.global_position
+	pursuers.erase(cop)
+	cop.queue_free()
+	heat = minf(HEAT_MAX, heat + 0.5)
+	heat_peak = maxf(heat_peak, heat)
+	_spawn_explosion(pos)
+
+# Fake explosion: 8 sphere shards fly outward and fade, plus a burst of light.
+func _spawn_explosion(pos: Vector3) -> void:
+	if headless:
+		return
+	var burst := OmniLight3D.new()
+	burst.light_color = Color(1.0, 0.5, 0.1)
+	burst.light_energy = 12.0
+	burst.omni_range = 18.0
+	burst.position = pos + Vector3(0, 1.5, 0)
+	add_child(burst)
+	get_tree().create_timer(0.5).timeout.connect(burst.queue_free)
+	for i in range(8):
+		var shard := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.5
+		sm.height = 1.0
+		shard.mesh = sm
+		var mat := StandardMaterial3D.new()
+		var c: Color = Color(1.0, 0.5, 0.1) if (i % 2 == 0) else Color(1.0, 0.2, 0.05)
+		mat.albedo_color = c
+		mat.emission_enabled = true
+		mat.emission = c
+		mat.emission_energy_multiplier = 4.0
+		shard.material_override = mat
+		shard.position = pos + Vector3(0, 1.5, 0)
+		add_child(shard)
+		var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(0.2, 1.0), rng.randf_range(-1, 1)).normalized()
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(shard, "position", shard.position + dir * 8.0, 1.0)
+		tw.tween_property(shard, "scale", Vector3.ZERO, 1.0)
+		tw.chain().tween_callback(shard.queue_free)
+
+# ----------------------------------------------------------------- ammo crates
+# 20 yellow crates scattered across districts. Walk within 1.5m to refill the
+# current weapon's mag (and top up reserve); the crate respawns after 60s.
+func _build_ammo_crates() -> void:
+	if mode != "play":
+		return
+	var n := 20
+	for i in range(n):
+		var d: Dictionary = DISTRICTS[i % DISTRICTS.size()]
+		var hw: float = d["w"] * 0.5 - 15.0
+		var hd: float = d["d"] * 0.5 - 15.0
+		var x: float = d["cx"] + rng.randf_range(-hw, hw)
+		var z: float = d["cz"] + rng.randf_range(-hd, hd)
+		_spawn_ammo_crate(Vector3(x, 0.5, z))
+
+func _spawn_ammo_crate(pos: Vector3) -> void:
+	var m := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.6, 0.6, 0.6)
+	m.mesh = bm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = _hex(0xf9f871)
+	mat.emission_enabled = true
+	mat.emission = _hex(0xf9f871)
+	mat.emission_energy_multiplier = 0.6
+	m.material_override = mat
+	m.position = pos
+	add_child(m)
+	ammo_crates.append({"node": m, "timer": 0.0, "active": true, "pos": pos})
+
+func _update_ammo_crates(delta: float) -> void:
+	if ammo_crates.is_empty():
+		return
+	var pp := _active_pos()
+	for crate in ammo_crates:
+		var node: MeshInstance3D = crate["node"]
+		if not is_instance_valid(node):
+			continue
+		if crate["active"]:
+			node.rotation.y += delta * 1.2   # slow spin
+			if not in_car:
+				var pos: Vector3 = crate["pos"]
+				if Vector2(pp.x - pos.x, pp.z - pos.z).length() < 1.5:
+					var w := _cur_weapon()
+					w["ammo"] = w["mag"]
+					w["reserve"] += w["mag"]
+					crate["active"] = false
+					crate["timer"] = 0.0
+					node.visible = false
+		else:
+			crate["timer"] += delta
+			if crate["timer"] >= 60.0:
+				crate["active"] = true
+				node.visible = true
 
 func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	if DisplayServer.get_name() == "headless":
@@ -1551,7 +1762,8 @@ func _update_hud() -> void:
 	for i in range(5):
 		stars += "*" if i < int(round(heat)) else "."
 	hud_right.text = "HEAT [%s]\nTIDE: %s" % [stars, _tide_phase()]
-	hud_bottom.text = "LEAD: %s   (Tab to cycle)" % leads[lead_idx]
+	var w := _cur_weapon()
+	hud_bottom.text = "LEAD: %s   %s %d/%d" % [leads[lead_idx], w["name"], w["ammo"], w["reserve"]]
 
 # ----------------------------------------------------------------- selfcheck
 func _selfcheck_tick(_delta: float) -> void:
@@ -1611,6 +1823,10 @@ func _finish_selfcheck() -> void:
 
 func _check(name: String, ok: bool) -> Dictionary:
 	return {"name": name, "ok": ok}
+
+# ----------------------------------------------------------------- missions (stub; filled in feature 7)
+func _accept_next_mission() -> void:
+	pass
 
 # ----------------------------------------------------------------- utils
 func _lerp_angle(from: float, to: float, weight: float) -> float:
