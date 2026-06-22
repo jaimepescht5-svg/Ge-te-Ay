@@ -181,6 +181,16 @@ var MISSIONS := [
 var current_mission := -1
 var money := 0
 var mission_completed: Array = []
+
+# player health / damage
+var health := 100.0
+var health_max := 100.0
+var wasted := false
+var wasted_timer := 0.0
+var car_impacts := 0
+var car_smoke_light: OmniLight3D
+var prev_player_y := 0.0
+var prev_cop_dists: Dictionary = {}   # cop -> last speed delta sample (impact detect)
 var mission_target_sphere: MeshInstance3D
 var mission_banner := ""
 var mission_banner_timer := 0.0
@@ -193,6 +203,18 @@ var lead_idx := 0
 var hud_left: Label
 var hud_right: Label
 var hud_bottom: Label
+# GTA-style HUD widgets
+var hud_money: Label
+var hud_char: Label
+var hud_district: Label
+var hud_mission: Label
+var hud_weapon: Label
+var hud_speed: Label
+var hud_heat: Label
+var hud_tide: Label
+var hud_center: Label
+var hud_health_bg: ColorRect
+var hud_health_fill: ColorRect
 
 # minimap
 var minimap_vp: SubViewport
@@ -845,20 +867,88 @@ func _build_camera() -> void:
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	hud_left = Label.new()
-	hud_left.position = Vector2(20, 16)
-	hud_left.add_theme_font_size_override("font_size", 26)
-	layer.add_child(hud_left)
-	hud_right = Label.new()
-	hud_right.position = Vector2(540, 16)
-	hud_right.add_theme_font_size_override("font_size", 22)
-	hud_right.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3))
-	layer.add_child(hud_right)
-	hud_bottom = Label.new()
-	hud_bottom.position = Vector2(20, 410)
-	hud_bottom.add_theme_font_size_override("font_size", 22)
-	hud_bottom.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
-	layer.add_child(hud_bottom)
+
+	# top-left: money (green) + character name
+	hud_money = _hud_label(layer, Vector2(20, 14), 28, Color(0.2, 1.0, 0.45))
+	hud_char = _hud_label(layer, Vector2(20, 48), 18, Color(0.8, 0.9, 1.0))
+
+	# top-center: district name (large, neon) — anchored to top centre
+	hud_district = _hud_label(layer, Vector2(0, 14), 30, Color(0.05, 0.85, 0.91))
+	hud_district.anchor_left = 0.5
+	hud_district.anchor_right = 0.5
+	hud_district.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hud_district.size = Vector2(400, 40)
+	hud_district.position = Vector2(-200, 14)
+
+	# center: big banner (WASTED / MISSION COMPLETE)
+	hud_center = _hud_label(layer, Vector2(-250, 0), 48, Color(1.0, 0.16, 0.2))
+	hud_center.anchor_left = 0.5
+	hud_center.anchor_right = 0.5
+	hud_center.anchor_top = 0.5
+	hud_center.anchor_bottom = 0.5
+	hud_center.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hud_center.size = Vector2(500, 60)
+	hud_center.position = Vector2(-250, -30)
+
+	# bottom-left: mission name + desc
+	hud_mission = _hud_label(layer, Vector2(20, -70), 18, Color(0.98, 0.95, 0.4))
+	hud_mission.anchor_top = 1.0
+	hud_mission.anchor_bottom = 1.0
+
+	# bottom-center: weapon + speed
+	hud_weapon = _hud_label(layer, Vector2(-100, -64), 22, Color(0.9, 0.95, 1.0))
+	hud_weapon.anchor_left = 0.5
+	hud_weapon.anchor_right = 0.5
+	hud_weapon.anchor_top = 1.0
+	hud_weapon.anchor_bottom = 1.0
+	hud_weapon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hud_weapon.size = Vector2(200, 24)
+	hud_speed = _hud_label(layer, Vector2(-100, -36), 20, Color(0.7, 0.85, 1.0))
+	hud_speed.anchor_left = 0.5
+	hud_speed.anchor_right = 0.5
+	hud_speed.anchor_top = 1.0
+	hud_speed.anchor_bottom = 1.0
+	hud_speed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hud_speed.size = Vector2(200, 22)
+
+	# bottom-right: heat stars + tide
+	hud_heat = _hud_label(layer, Vector2(-180, -64), 22, Color(1.0, 0.4, 0.3))
+	hud_heat.anchor_left = 1.0
+	hud_heat.anchor_right = 1.0
+	hud_heat.anchor_top = 1.0
+	hud_heat.anchor_bottom = 1.0
+	hud_tide = _hud_label(layer, Vector2(-180, -36), 16, Color(0.5, 0.8, 0.95))
+	hud_tide.anchor_left = 1.0
+	hud_tide.anchor_right = 1.0
+	hud_tide.anchor_top = 1.0
+	hud_tide.anchor_bottom = 1.0
+
+	# left vertical health bar
+	hud_health_bg = ColorRect.new()
+	hud_health_bg.color = Color(0.1, 0.05, 0.05, 0.8)
+	hud_health_bg.size = Vector2(14, 160)
+	hud_health_bg.position = Vector2(8, 90)
+	layer.add_child(hud_health_bg)
+	hud_health_fill = ColorRect.new()
+	hud_health_fill.color = Color(0.2, 1.0, 0.45)
+	hud_health_fill.size = Vector2(14, 160)
+	hud_health_fill.position = Vector2(8, 90)
+	layer.add_child(hud_health_fill)
+
+	# legacy aliases (kept so older update paths/tests don't break)
+	hud_left = hud_money
+	hud_right = hud_heat
+	hud_bottom = hud_weapon
+
+func _hud_label(layer: CanvasLayer, pos: Vector2, size: int, color: Color) -> Label:
+	var l := Label.new()
+	l.position = pos
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	l.add_theme_constant_override("outline_size", 4)
+	layer.add_child(l)
+	return l
 
 # ----------------------------------------------------------------- minimap
 # A top-down orthographic SubViewport sharing the main World3D, shown in a small
@@ -1038,6 +1128,7 @@ func _physics_process(delta: float) -> void:
 		fire_cooldown -= delta
 	_update_ammo_crates(delta)
 	_update_missions(delta)
+	_update_health(delta)
 	if mode == "selfcheck":
 		_selfcheck_tick(delta)
 	if mode == "play":
@@ -1826,6 +1917,8 @@ func _process(_d: float) -> void:
 	_update_hud()
 	_update_police_lights()
 	_update_minimap()
+	if car_smoke_light != null and is_instance_valid(car_smoke_light):
+		car_smoke_light.light_energy = 2.0 + sin(sim_time * 20.0) * 1.5
 
 func _update_camera() -> void:
 	if cam == null or not cam.is_inside_tree():
@@ -1843,25 +1936,73 @@ func _update_camera() -> void:
 		cam.look_at(p + Vector3.UP * 1.0, Vector3.UP)
 
 func _update_hud() -> void:
-	if hud_left == null:
+	if hud_money == null:
 		return
 	var spd := _car_speed() if in_car else _planar_speed_body()
 	var kmh := int(round(spd * 3.6))
-	var mode_str := "DRIVING" if in_car else "ON FOOT"
 	var pos := _car_xz() if in_car else _player_xz()
-	var mission_str := ""
-	if mission_banner != "":
-		mission_str = "\n" + mission_banner
-	elif current_mission >= 0:
+
+	# top-left money + character
+	hud_money.text = "$%s" % _commafy(money)
+	hud_char.text = leads[lead_idx]
+
+	# district name in its palette colour
+	var dname := _district_at(pos)
+	hud_district.text = dname
+	hud_district.add_theme_color_override("font_color", _district_color(dname))
+
+	# bottom-left mission
+	if current_mission >= 0:
 		var m: Dictionary = MISSIONS[current_mission]
-		mission_str = "\n%s: %s" % [m["name"], m["desc"]]
-	hud_left.text = "$%d\n%d km/h\n%s\n%s%s" % [money, kmh, mode_str, _district_at(pos), mission_str]
-	var stars := ""
-	for i in range(5):
-		stars += "*" if i < int(round(heat)) else "."
-	hud_right.text = "HEAT [%s]\nTIDE: %s" % [stars, _tide_phase()]
+		var prog := ""
+		if m["type"] == "eliminate" or m["type"] == "deliver":
+			prog = "\n(objective: in progress)"
+		hud_mission.text = "%s\n%s%s" % [m["name"], m["desc"], prog]
+	else:
+		hud_mission.text = "[M] accept mission"
+
+	# bottom-center weapon + speed
 	var w := _cur_weapon()
-	hud_bottom.text = "LEAD: %s   %s %d/%d" % [leads[lead_idx], w["name"], w["ammo"], w["reserve"]]
+	hud_weapon.text = "%s %d/%d" % [w["name"], w["ammo"], w["reserve"]]
+	hud_speed.text = ("%d km/h" % kmh) if in_car else "ON FOOT"
+
+	# bottom-right heat stars (filled/empty) + tide
+	var stars := ""
+	var h := int(round(heat))
+	for i in range(5):
+		stars += "★" if i < h else "☆"
+	hud_heat.text = "HEAT %s" % stars
+	hud_tide.text = "TIDE: %s" % _tide_phase()
+
+	# center banner
+	hud_center.text = mission_banner
+	hud_center.add_theme_color_override("font_color",
+		Color(1.0, 0.16, 0.2) if mission_banner == "WASTED" else Color(0.98, 0.95, 0.4))
+
+	# health bar (vertical, fills from bottom)
+	if hud_health_fill != null:
+		var frac := clampf(health / health_max, 0.0, 1.0)
+		var full_h := 160.0
+		hud_health_fill.size = Vector2(14, full_h * frac)
+		hud_health_fill.position = Vector2(8, 90 + full_h * (1.0 - frac))
+		hud_health_fill.color = Color(0.2, 1.0, 0.45).lerp(Color(1.0, 0.2, 0.2), 1.0 - frac)
+
+func _commafy(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	var c := 0
+	for i in range(s.length() - 1, -1, -1):
+		out = s[i] + out
+		c += 1
+		if c % 3 == 0 and i > 0:
+			out = "," + out
+	return ("-" if n < 0 else "") + out
+
+func _district_color(dname: String) -> Color:
+	for d in DISTRICTS:
+		if d["name"] == dname:
+			return _hex(d["palette"][0])
+	return Color(0.9, 0.9, 0.95)
 
 # ----------------------------------------------------------------- selfcheck
 func _selfcheck_tick(_delta: float) -> void:
@@ -2007,6 +2148,108 @@ func _complete_mission() -> void:
 	mission_banner_timer = 4.0
 	current_mission = -1
 	_clear_mission_target()
+
+# ----------------------------------------------------------------- health / damage
+func _update_health(delta: float) -> void:
+	if mode != "play":
+		return
+	if wasted:
+		wasted_timer -= delta
+		if wasted_timer <= 0.0:
+			_revive()
+		return
+	# heal over time when clean
+	if heat <= 0.0 and health < health_max:
+		health = minf(health_max, health + 5.0 * delta)
+	# fall damage on foot
+	if not in_car:
+		var y := player_body.global_position.y
+		if player_body.is_on_floor():
+			var fall := prev_player_y - y
+			if fall > 10.0:
+				_damage_player(fall * 1.5)
+			prev_player_y = y
+		else:
+			prev_player_y = maxf(prev_player_y, y)
+	else:
+		prev_player_y = car.global_position.y
+	# pursuer car collisions (speed-delta based)
+	_check_cop_collisions()
+	if health <= 0.0 and not wasted:
+		_wasted()
+
+func _check_cop_collisions() -> void:
+	var ap := _active_pos()
+	for cop: VehicleBody3D in pursuers:
+		if not is_instance_valid(cop):
+			continue
+		var d := cop.global_position.distance_to(ap)
+		if d < 5.0:
+			var my_vel: Vector3 = car.linear_velocity if in_car else player_body.velocity
+			var rel := (cop.linear_velocity - my_vel).length()
+			if rel > 8.0:
+				if in_car:
+					_car_impact()
+				else:
+					_damage_player(15.0)
+
+func _damage_player(amount: float) -> void:
+	if wasted:
+		return
+	health = maxf(0.0, health - amount)
+
+func _car_impact() -> void:
+	car_impacts += 1
+	if car_impacts == 5 and car_smoke_light == null and not headless:
+		car_smoke_light = OmniLight3D.new()
+		car_smoke_light.light_color = Color(1.0, 0.4, 0.1)
+		car_smoke_light.omni_range = 8.0
+		car.add_child(car_smoke_light)
+		car_smoke_light.position = Vector3(0, 2.0, 0)
+	if car_impacts >= 8:
+		_destroy_car()
+
+func _destroy_car() -> void:
+	_spawn_explosion(car.global_position)
+	car_impacts = 0
+	if car_smoke_light != null and is_instance_valid(car_smoke_light):
+		car_smoke_light.queue_free()
+		car_smoke_light = null
+	# eject to foot beside the wreck, then reset the car a moment later
+	if in_car:
+		var side := car.global_transform.basis.x.normalized()
+		var out := car.global_position + side * 3.0
+		out.y = 1.0
+		player_body.global_position = out
+		player_body.velocity = Vector3.ZERO
+		player_body.visible = true
+		player_body.set_physics_process(true)
+		player_yaw = car.rotation.y
+		in_car = false
+	_respawn_car_only()
+
+func _respawn_car_only() -> void:
+	car.linear_velocity = Vector3.ZERO
+	car.angular_velocity = Vector3.ZERO
+	car.position = spawn_pos
+	car.rotation = Vector3(0, spawn_yaw, 0)
+	steer_current = 0.0
+
+func _wasted() -> void:
+	wasted = true
+	wasted_timer = 2.0
+	mission_banner = "WASTED"
+	mission_banner_timer = 2.0
+
+func _revive() -> void:
+	wasted = false
+	health = health_max
+	heat = 0.0
+	car_impacts = 0
+	if car_smoke_light != null and is_instance_valid(car_smoke_light):
+		car_smoke_light.queue_free()
+		car_smoke_light = null
+	_respawn_in_car()
 
 # ----------------------------------------------------------------- utils
 func _lerp_angle(from: float, to: float, weight: float) -> float:
