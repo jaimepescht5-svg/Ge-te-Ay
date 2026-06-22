@@ -78,6 +78,9 @@ the full firewall.
 | [27 — Vehicle Catalog](docs/27-vehicle-catalog.md) | The full fleet: land, sea, air |
 | [28 — Weapon Catalog](docs/28-weapon-catalog.md) | The full arsenal and gadgets |
 | [29 — Wardrobe & Customization](docs/29-wardrobe-and-customization.md) | Dressing the leads; clothing as a system |
+| [30 — Post-Launch Roadmap](docs/30-post-launch-roadmap.md) | Expansions, seasons, and the monetization lines |
+| [31 — Announce Trailer Script](docs/31-announce-trailer-script.md) | The ~90s reveal trailer, shot by shot |
+| [32 — FAQ](docs/32-faq.md) | Anticipated questions, answered |
 
 ---
 

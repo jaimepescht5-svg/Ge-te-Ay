@@ -2,6 +2,17 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 7 — Product & Lifecycle
+- Added three product-layer docs:
+  - 30 Post-Launch Roadmap — phases, two story expansions ("Undertow,"
+    "After the Water"), free-core online seasons that evolve the city, hard
+    monetization lines
+  - 31 Announce Trailer Script — a ~90s shot-by-shot reveal (postcard → turn →
+    the switch → the storm → logo)
+  - 32 FAQ — anticipated player/press/stakeholder questions, answered and
+    cross-linked to the bible
+- Updated README doc map.
+
 ## Round 6 — Catalogs & Customization
 - Added three player-facing catalog docs:
   - 27 Vehicle Catalog — the full invented fleet (compacts→hypercars, off-road,
