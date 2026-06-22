@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 14 — Experience & Encounters
+- Added three docs:
+  - 50 Onboarding & Tutorial — teach-by-playing philosophy, the first-3-hours
+    curve, progressive disclosure, pull-not-push help, soft early failure
+  - 51 Enemy & Faction Roster — the four pursuit forces, police escalation roster,
+    readable enemy archetypes, faction-flavor enemies, encounter & boss design
+  - 52 The Player Journey — the felt experience minute-one-to-credits, the
+    emotional throughline, and the journey review gate
+- Updated README doc map.
+
 ## Round 13 — Navigation & Systems Closeout
 - Added three docs:
   - 00 Master Index & Reading Guide — "start here": role-based reading paths, doc

@@ -99,6 +99,9 @@ the full firewall.
 | [47 — Photo Mode & Community](docs/47-photo-mode-and-community.md) | Capture, sharing, creator tools, moderation |
 | [48 — Narrative Branching System](docs/48-narrative-branching-system.md) | The flags/meters/gates choice machinery |
 | [49 — Difficulty & Balance](docs/49-difficulty-and-balance.md) | Per-system difficulty axes and balance design |
+| [50 — Onboarding & Tutorial](docs/50-onboarding-and-tutorial.md) | Teaching the sandbox by playing it |
+| [51 — Enemy & Faction Roster](docs/51-enemy-and-faction-roster.md) | The forces that push back |
+| [52 — The Player Journey](docs/52-player-journey.md) | The felt experience, minute one to credits |
 
 ---
 
