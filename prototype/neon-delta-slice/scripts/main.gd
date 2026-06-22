@@ -167,6 +167,12 @@ var hud_left: Label
 var hud_right: Label
 var hud_bottom: Label
 
+# minimap
+var minimap_vp: SubViewport
+var minimap_cam: Camera3D
+var minimap_dots: Dictionary = {}   # role -> Array[MeshInstance3D]
+var mission_blips: Array = []        # {pos: Vector2, mesh: MeshInstance3D}
+
 # telemetry / selfcheck
 var distance := 0.0
 var prev_pos := Vector2.ZERO
@@ -201,6 +207,7 @@ func _ready() -> void:
 	_build_hud()
 	_build_traffic()
 	_build_peds()
+	_build_minimap()
 
 	bot = WaypointBot.new(WP)
 	in_car = true
@@ -801,6 +808,8 @@ func _build_camera() -> void:
 	cam = Camera3D.new()
 	cam.fov = 65
 	cam.position = spawn_pos + Vector3(0, 8, 14)
+	# main view sees everything except the minimap-only dot layer (layer 2)
+	cam.cull_mask = 0xFFFFF & ~(1 << (MM_LAYER - 1))
 	add_child(cam)  # child of root, NOT the car
 	cam.look_at(spawn_pos, Vector3.UP)
 
@@ -821,6 +830,105 @@ func _build_hud() -> void:
 	hud_bottom.add_theme_font_size_override("font_size", 22)
 	hud_bottom.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 	layer.add_child(hud_bottom)
+
+# ----------------------------------------------------------------- minimap
+# A top-down orthographic SubViewport sharing the main World3D, shown in a small
+# panel top-right. Coloured marker dots (player/police/traffic) live above the
+# scene and are only visible to the overhead minimap camera via render layers.
+# Render-only: skipped entirely in headless CI.
+const MM_SIZE := 200          # panel px
+const MM_ORTHO := 320.0       # world metres across the minimap view
+const MM_LAYER := 2           # render layer reserved for minimap-only dots
+
+func _build_minimap() -> void:
+	if headless:
+		return
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	# dark border panel behind the map
+	var border := ColorRect.new()
+	border.color = Color(0.04, 0.05, 0.08, 0.9)
+	border.size = Vector2(MM_SIZE + 8, MM_SIZE + 8)
+	border.position = Vector2(-MM_SIZE - 16, 12)
+	border.anchor_left = 1.0
+	border.anchor_right = 1.0
+	layer.add_child(border)
+
+	minimap_vp = SubViewport.new()
+	minimap_vp.size = Vector2i(MM_SIZE, MM_SIZE)
+	minimap_vp.transparent_bg = false
+	minimap_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	minimap_vp.world_3d = get_world_3d()   # render the same scene
+	add_child(minimap_vp)
+
+	minimap_cam = Camera3D.new()
+	minimap_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	minimap_cam.size = MM_ORTHO
+	minimap_cam.position = Vector3(spawn_pos.x, 600, spawn_pos.z)
+	minimap_cam.rotation_degrees = Vector3(-90, 0, 0)
+	minimap_cam.cull_mask = 0xFFFFF   # see world + the minimap dot layer
+	minimap_vp.add_child(minimap_cam)
+
+	# the panel that displays the viewport texture
+	var tex := TextureRect.new()
+	tex.texture = minimap_vp.get_texture()
+	tex.size = Vector2(MM_SIZE, MM_SIZE)
+	tex.position = Vector2(-MM_SIZE - 12, 16)
+	tex.anchor_left = 1.0
+	tex.anchor_right = 1.0
+	layer.add_child(tex)
+
+	# marker dots — bright, hover above the scene, on the main minimap layer.
+	# The main game camera also sees them but they sit 50m up, harmlessly.
+	minimap_dots["player"] = [_make_dot(Color(0.05, 0.9, 0.95), 7.0)]
+	minimap_dots["police"] = []
+	minimap_dots["traffic"] = []
+
+func _make_dot(c: Color, r: float) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = r
+	sm.height = r * 2.0
+	m.mesh = sm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = c
+	mat.emission_enabled = true
+	mat.emission = c
+	mat.emission_energy_multiplier = 4.0
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.material_override = mat
+	m.layers = 1 << (MM_LAYER - 1)   # render layer 2 — main cam is masked off this
+	m.position = Vector3(0, 50, 0)
+	add_child(m)
+	return m
+
+func _ensure_dots(role: String, n: int, c: Color, r: float) -> void:
+	var arr: Array = minimap_dots[role]
+	while arr.size() < n:
+		arr.append(_make_dot(c, r))
+	for i in range(arr.size()):
+		arr[i].visible = i < n
+
+func _update_minimap() -> void:
+	if headless or minimap_cam == null:
+		return
+	var p := _active_pos()
+	minimap_cam.position = Vector3(p.x, 600, p.z)
+	# player dot
+	var pd: MeshInstance3D = minimap_dots["player"][0]
+	pd.position = Vector3(p.x, 55, p.z)
+	# police dots (red)
+	_ensure_dots("police", pursuers.size(), Color(1.0, 0.15, 0.15), 6.0)
+	for i in range(pursuers.size()):
+		var cop = pursuers[i]
+		if is_instance_valid(cop):
+			minimap_dots["police"][i].position = Vector3(cop.global_position.x, 52, cop.global_position.z)
+	# traffic dots (white)
+	_ensure_dots("traffic", civilians.size(), Color(0.95, 0.95, 0.95), 5.0)
+	for i in range(civilians.size()):
+		var cc = civilians[i]["car"]
+		if is_instance_valid(cc):
+			minimap_dots["traffic"][i].position = Vector3(cc.global_position.x, 52, cc.global_position.z)
 
 # ----------------------------------------------------------------- input
 func _setup_input() -> void:
@@ -1414,6 +1522,7 @@ func _process(_d: float) -> void:
 	_update_camera()
 	_update_hud()
 	_update_police_lights()
+	_update_minimap()
 
 func _update_camera() -> void:
 	if cam == null or not cam.is_inside_tree():
