@@ -75,6 +75,9 @@ the full firewall.
 | [24 — World Lore & Timeline](docs/24-world-lore-timeline.md) | The deep history of Solano County |
 | [25 — Glossary & Slang](docs/25-glossary-slang.md) | Team terminology + in-world street slang |
 | [26 — Pitch & Positioning](docs/26-pitch-and-positioning.md) | The elevator pitch and market framing |
+| [27 — Vehicle Catalog](docs/27-vehicle-catalog.md) | The full fleet: land, sea, air |
+| [28 — Weapon Catalog](docs/28-weapon-catalog.md) | The full arsenal and gadgets |
+| [29 — Wardrobe & Customization](docs/29-wardrobe-and-customization.md) | Dressing the leads; clothing as a system |
 
 ---
 

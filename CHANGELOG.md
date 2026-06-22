@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 6 — Catalogs & Customization
+- Added three player-facing catalog docs:
+  - 27 Vehicle Catalog — the full invented fleet (compacts→hypercars, off-road,
+    bikes, boats, aircraft, unique earned vehicles) with relative stat tiers
+  - 28 Weapon Catalog — the full arsenal across melee→heavy, a complete non-lethal
+    line, Theo's gadgets, and attachment/legality/Heat systems
+  - 29 Wardrobe & Customization — per-lead signature looks, clothing as a system
+    (concealment, disguise, weather, faction colors), acquisition, photo synergy
+- Updated README doc map.
+
 ## Round 5 — Depth & Pitch
 - Added three docs that deepen the world and frame the sell:
   - 24 World Lore & Timeline — the invented 1700s→present history of Solano County
