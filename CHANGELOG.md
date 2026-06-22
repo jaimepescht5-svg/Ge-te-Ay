@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 9 — Interiority & Living Calendar
+- Added three docs:
+  - 36 Character Bios — full deep backstories, wounds, and arc questions for the
+    three leads and the three antagonists
+  - 37 Radio Programming — station programming anatomy, sample original-track
+    commission briefs, DJ bits, satirical ad reads, reactive logic
+  - 38 Dynamic Events Calendar — the three event layers (cyclical/scheduled/
+    reactive) and the storm mega-event staging
+- Updated README doc map.
+
 ## Round 8 — Granular Depth
 - Went deeper and more concrete with three docs:
   - 33 District Deep-Dive: The Cut — the ship-quality template district (layout,

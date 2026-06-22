@@ -84,6 +84,9 @@ the full firewall.
 | [33 — District Deep-Dive: The Cut](docs/33-district-deepdive-the-cut.md) | One district to ship-quality, the template |
 | [34 — Economy Balance](docs/34-economy-balance.md) | Worked numbers, curves, anti-grind guarantees |
 | [35 — Mission Flow & Pacing](docs/35-mission-flow-and-pacing.md) | Campaign structure, mission anatomy, rhythm |
+| [36 — Character Bios](docs/36-character-bios.md) | Deep backstories for the principal cast |
+| [37 — Radio Programming](docs/37-radio-programming.md) | Station programming, original tracks, ad reads |
+| [38 — Dynamic Events Calendar](docs/38-dynamic-events-calendar.md) | The living city's cyclical, scheduled & reactive events |
 
 ---
 
