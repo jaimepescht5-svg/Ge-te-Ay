@@ -290,12 +290,12 @@ func _build_environment() -> void:
 	var e := Environment.new()
 	env = e
 
-	# --- procedural sky (synthwave golden-hour-into-violet) ---
+	# --- procedural sky (realistic golden-hour blue sky; CLAUDE.md: not synthwave) ---
 	sky_mat = ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = _hex(0x1a1140)
-	sky_mat.sky_horizon_color = _hex(0xff7b00)
-	sky_mat.ground_horizon_color = _hex(0xb967ff)
-	sky_mat.ground_bottom_color = _hex(0x0d0d14)
+	sky_mat.sky_top_color = _hex(0x3a6ea5)        # daytime blue
+	sky_mat.sky_horizon_color = _hex(0xe8b074)    # warm golden horizon
+	sky_mat.ground_horizon_color = _hex(0xc99a6a)
+	sky_mat.ground_bottom_color = _hex(0x2a2620)
 	sky_mat.sky_energy_multiplier = 1.0
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
@@ -303,12 +303,12 @@ func _build_environment() -> void:
 	e.sky = sky
 
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	e.ambient_light_color = Color(0.30, 0.34, 0.46)
+	e.ambient_light_color = Color(0.40, 0.42, 0.48)
 	e.ambient_light_energy = 0.65
-	e.ambient_light_sky_contribution = 0.4
+	e.ambient_light_sky_contribution = 0.5
 
 	e.fog_enabled = true
-	e.fog_light_color = Color(0.20, 0.14, 0.28)
+	e.fog_light_color = Color(0.18, 0.16, 0.13)   # warm dark fog, not violet
 	e.fog_density = 0.0016
 
 	# tone mapping
@@ -403,8 +403,10 @@ func _add_streetlight(pos: Vector3) -> void:
 # clip; otherwise the sun & moon sweep across DAY_SECONDS.
 func _update_day_night(delta: float) -> void:
 	if mode == "selfcheck":
-		day_time = DAY_SECONDS * 0.12   # frozen golden hour (low warm sun)
+		day_time = DAY_SECONDS * 0.29   # frozen golden hour (low warm sun, elev ~+0.25)
 	else:
+		if day_time == 0.0:
+			day_time = DAY_SECONDS * 0.70   # start at warm late-afternoon (CLAUDE.md tod 0.70)
 		day_time = fmod(day_time + delta, DAY_SECONDS)
 	var phase := day_time / DAY_SECONDS         # 0..1
 	# sun elevation: sin curve, +1 noon, -1 midnight, phase 0 = dawn
@@ -423,15 +425,15 @@ func _update_day_night(delta: float) -> void:
 	var golden := clampf(1.0 - absf(sun_elev - 0.2) * 2.5, 0.0, 1.0)
 	sun.light_color = Color(1.0, 0.93, 0.78).lerp(Color(1.0, 0.62, 0.35), golden)
 
-	# ambient + fog tie to elevation
+	# ambient + fog tie to elevation (realistic warm dark night -> bright day)
 	if env != null:
 		env.ambient_light_energy = lerpf(0.18, 0.85, day)
 		env.fog_density = lerpf(0.0042, 0.0012, day)
-		env.fog_light_color = _hex(0x231030).lerp(_hex(0x4a3a30), day)
+		env.fog_light_color = _hex(0x12100c).lerp(_hex(0x6a5c48), day)   # warm dark
 		if sky_mat != null:
-			sky_mat.sky_energy_multiplier = lerpf(0.25, 1.1, day)
-			sky_mat.sky_horizon_color = _hex(0xff2a6d).lerp(_hex(0xff9b3a), day)
-			sky_mat.sky_top_color = _hex(0x0a0820).lerp(_hex(0x2a3aa0), day)
+			sky_mat.sky_energy_multiplier = lerpf(0.20, 1.1, day)
+			sky_mat.sky_horizon_color = _hex(0x4a3a40).lerp(_hex(0xe8b074), day)  # night gray -> golden
+			sky_mat.sky_top_color = _hex(0x0a0e18).lerp(_hex(0x3a6ea5), day)      # deep night -> blue
 
 	# streetlights on at night
 	var lights_on := sun_elev < 0.15
