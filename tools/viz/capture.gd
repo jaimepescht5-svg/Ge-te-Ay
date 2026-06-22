@@ -55,4 +55,4 @@ func _grab() -> void:
 	tex.get_image().save_png("%s/frame_%04d.png" % [out_dir, idx])
 	idx += 1
 	if idx >= maxn:
-		get_tree().quit()
+		active = false  # stop capturing but let the game keep running
