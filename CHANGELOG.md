@@ -2,6 +2,18 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 3 — Content Depth
+- Added four content/system docs:
+  - 17 Heist Catalog — the 9 marquee scores (H1–H9), each with Quiet/Loud/Clever
+    approaches, teaching goals, rewards, and fallout; H9 branches into the endings
+  - 18 Side Stories — 7 named arcs + strangers anthology, hustles, collectibles,
+    each with mechanics and a tangible reward/ending lever
+  - 19 Living World & AI — NPC ecology & memory, faction territorial AI, dynamic
+    environment as actor, emergent "seed" director, police/crew AI, fidelity LOD
+  - 03a Cast & Relationships — full relationship web, antagonist motivations,
+    dynamic relationship values, casting/voice direction
+- Updated README doc map.
+
 ## Round 2 — Texture & Voice
 - Added four flavor-and-depth docs that give the world its accent:
   - 13 Radio & Music (12-station dial, DJs, reactive talk radio, adaptive score

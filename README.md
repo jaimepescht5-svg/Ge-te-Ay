@@ -51,6 +51,7 @@ the full firewall.
 | [01 — Vision & Pillars](docs/01-vision.md) | The creative north star and design pillars |
 | [02 — World & Setting](docs/02-setting-world.md) | Port Soleil, Solano County, the era and tone |
 | [03 — Characters](docs/03-characters.md) | The crew, the antagonists, the supporting cast |
+| [03a — Cast & Relationships](docs/03a-cast-relationships.md) | The full social web and relationship systems |
 | [04 — Story & Structure](docs/04-story.md) | Three-act narrative, themes, branching |
 | [05 — Core Gameplay](docs/05-gameplay-mechanics.md) | The moment-to-moment loop |
 | [06 — Map & Districts](docs/06-map-districts.md) | The city's neighborhoods and the wider county |
@@ -64,6 +65,9 @@ the full firewall.
 | [14 — Brand Bible](docs/14-brand-bible.md) | Every invented brand in the world |
 | [15 — Art Direction](docs/15-art-direction.md) | The visual identity |
 | [16 — Vertical Slice: Prologue](docs/16-vertical-slice-prologue.md) | The playable opening, beat by beat |
+| [17 — Heist Catalog](docs/17-heist-catalog.md) | The nine marquee scores |
+| [18 — Side Stories](docs/18-side-stories.md) | Character arcs, strangers, collectibles |
+| [19 — Living World & AI](docs/19-living-world-ai.md) | NPC ecology, faction AI, emergent systems |
 
 ---
 
