@@ -81,6 +81,9 @@ the full firewall.
 | [30 — Post-Launch Roadmap](docs/30-post-launch-roadmap.md) | Expansions, seasons, and the monetization lines |
 | [31 — Announce Trailer Script](docs/31-announce-trailer-script.md) | The ~90s reveal trailer, shot by shot |
 | [32 — FAQ](docs/32-faq.md) | Anticipated questions, answered |
+| [33 — District Deep-Dive: The Cut](docs/33-district-deepdive-the-cut.md) | One district to ship-quality, the template |
+| [34 — Economy Balance](docs/34-economy-balance.md) | Worked numbers, curves, anti-grind guarantees |
+| [35 — Mission Flow & Pacing](docs/35-mission-flow-and-pacing.md) | Campaign structure, mission anatomy, rhythm |
 
 ---
 

@@ -2,6 +2,17 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 8 — Granular Depth
+- Went deeper and more concrete with three docs:
+  - 33 District Deep-Dive: The Cut — the ship-quality template district (layout,
+    landmarks, system showcase, content density, tide/time states, quality gates)
+  - 34 Economy Balance — worked illustrative numbers: phase net-worth curve, heist
+    payouts by approach, net-take formula, laundering economics, spending sinks,
+    passive income, numeric anti-grind guarantees
+  - 35 Mission Flow & Pacing — campaign spine, register-alternation rule, the
+    5-beat mission template, branching/convergence, anti-sag review gates
+- Updated README doc map.
+
 ## Round 7 — Product & Lifecycle
 - Added three product-layer docs:
   - 30 Post-Launch Roadmap — phases, two story expansions ("Undertow,"
