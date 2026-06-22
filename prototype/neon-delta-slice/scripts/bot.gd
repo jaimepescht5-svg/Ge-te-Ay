@@ -1,75 +1,80 @@
 extends RefCounted
-# No `class_name` (see track.gd) — resolve the track type via preload so this
-# parses on a clean clone without the `.godot/` global class cache.
-const TrackGeometry := preload("res://scripts/track.gd")
+# NEON DELTA — waypoint-following driver bot for the open world.
+#
+# No `class_name` (headless CI parses on a clean clone without the global class
+# cache). A simple, robust steering bot: it chases a list of xz waypoints in
+# order, advances when it gets close, and eases off the throttle before turns so
+# the heavy cruiser doesn't plough through corners. Its job is to prove the world
+# is traversable and to feed the self-check, not to judge feel.
 
-# A reference "proxy player": follows the racing line with pure pursuit and a
-# lookahead speed planner (brake early for corners, not reactively at them).
-# Its job is to answer measurable questions — is the track drivable, where does
-# a normal line leave the road, is a lap completable in a sane time — NOT to
-# judge whether driving feels good. That judgement is the human's.
+var waypoints: PackedVector2Array = PackedVector2Array()
+var wp_idx := 0
 
-var track: TrackGeometry
-var steer_lookahead_base := 6.0
-var steer_lookahead_speed := 0.35
-var steer_gain := 1.9
-var max_lat_accel := 2.0     # m/s^2 the bot believes it can hold (big low-grip car)
-var brake_decel := 6.0       # m/s^2 it plans to brake at
-var brake_horizon := 105.0   # how far ahead (m) it plans speed
-var max_speed := 34.0        # m/s target cap on straights
+const SWITCH_DIST := 30.0     # advance to next waypoint within this many metres
+const STEER_GAIN := 0.7       # low — a high gain makes the heavy car fishtail/oscillate
+const MAX_SPEED := 26.0       # m/s ≈ 94 km/h cap; long straights let it sprint
+const TURN_SLOWDOWN := 0.5    # speed factor when the next turn is sharp
 
-func _init(track_: TrackGeometry) -> void:
-	track = track_
+func _init(wps: PackedVector2Array) -> void:
+	waypoints = wps
+	wp_idx = 0
+
+# Advance the waypoint cursor if we are within SWITCH_DIST of the current target.
+# Returns true exactly on the frame an advance happens (so the caller can count
+# distinct waypoints visited).
+func advance_if_close(pos: Vector2) -> bool:
+	if wp_idx >= waypoints.size():
+		return false
+	if pos.distance_to(waypoints[wp_idx]) < SWITCH_DIST:
+		wp_idx += 1
+		return true
+	return false
+
+func _current() -> Vector2:
+	if waypoints.is_empty():
+		return Vector2.ZERO
+	return waypoints[mini(wp_idx, waypoints.size() - 1)]
+
+func _next() -> Vector2:
+	if waypoints.is_empty():
+		return Vector2.ZERO
+	return waypoints[mini(wp_idx + 1, waypoints.size() - 1)]
 
 func control(pos: Vector2, forward: Vector2, speed: float) -> Dictionary:
-	var idx := track.nearest_index(pos)
-
-	# --- steering: pure pursuit toward a look-ahead point on the line ---
-	var look := steer_lookahead_base + speed * steer_lookahead_speed
-	var aim := track.lookahead_point(idx, look)
+	var aim := _current()
 	var to_aim := aim - pos
 	var steer := 0.0
-	if to_aim.length() > 0.001:
+	if to_aim.length() > 0.001 and forward.length() > 0.001:
 		var d := to_aim.normalized()
 		var cross := forward.x * d.y - forward.y * d.x
 		var dot := forward.dot(d)
-		steer = clampf(atan2(cross, dot) * steer_gain, -1.0, 1.0)
+		steer = clampf(atan2(cross, dot) * STEER_GAIN, -1.0, 1.0)
 
-	# --- speed planning: the slowest speed any upcoming point demands, given
-	#     we must be able to brake down to it by the time we arrive ---
-	var target := max_speed
-	var n := track.points.size()
-	var steps := int(brake_horizon / track.spacing)
-	for s in range(0, steps):
-		var i := (idx + s) % n
-		var v_allow := _corner_speed(i)
-		var dist := s * track.spacing
-		var v_cap := sqrt(v_allow * v_allow + 2.0 * brake_decel * dist)
-		target = minf(target, v_cap)
+	# slow before turns: compare heading to current leg vs the next leg.
+	# Only ramp down within 80 m of the waypoint so the car can cruise at
+	# full speed in the middle of a long segment.
+	var target := MAX_SPEED
+	var leg := (aim - pos)
+	var nxt := (_next() - aim)
+	var leg_dist := leg.length()
+	if leg_dist > 0.001 and nxt.length() > 0.001:
+		var ang := absf(leg.normalized().angle_to(nxt.normalized()))
+		var fac := clampf(1.0 - leg_dist / 55.0, 0.0, 1.0)   # 0 far, 1 within 55 m
+		# only a genuine corner (not a slight kink) costs speed, and only as the
+		# waypoint nears — long straights stay at full pace so the car can sprint
+		if ang > 0.7:
+			target = lerpf(MAX_SPEED, MAX_SPEED * TURN_SLOWDOWN, fac)
+		if ang > 1.3:
+			target = lerpf(MAX_SPEED, MAX_SPEED * 0.35, fac)
+	# (no instantaneous-steer speed cut: with a low steer gain the steering is
+	# smooth, and the angle-based slowdown above already handles real corners.)
 
 	var throttle := 0.0
 	var brake := 0.0
-	if speed > target + 0.5:
-		brake = clampf((speed - target) * 0.5, 0.0, 1.0)
+	if speed > target + 1.0:
+		brake = clampf((speed - target) * 0.4, 0.0, 1.0)
 	elif speed < target - 0.5:
-		throttle = clampf((target - speed) * 0.3, 0.2, 1.0)
+		throttle = clampf((target - speed) * 0.3, 0.3, 1.0)
 	else:
-		throttle = 0.3
+		throttle = 0.35
 	return {"throttle": throttle, "brake": brake, "steer": steer}
-
-# Local corner speed limit from the centerline's curvature at index i.
-func _corner_speed(i: int) -> float:
-	var n := track.points.size()
-	var a := track.points[(i - 2 + n) % n]
-	var b := track.points[i]
-	var c := track.points[(i + 2) % n]
-	var t0 := (b - a)
-	var t1 := (c - b)
-	if t0.length() < 0.001 or t1.length() < 0.001:
-		return max_speed
-	var ang := absf(t0.normalized().angle_to(t1.normalized()))
-	var arc := t0.length() + t1.length()
-	if ang < 0.0001:
-		return max_speed                       # effectively straight
-	var radius := arc / ang
-	return clampf(sqrt(max_lat_accel * radius), 6.0, max_speed)

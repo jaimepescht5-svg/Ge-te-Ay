@@ -22,7 +22,7 @@ VIZ_PY="$(dirname "$0")/../../../tools/viz/viz.py"
 FRAMES_DIR="${FRAMES_DIR:-/tmp/neon_delta_frames_$$}"
 
 export GAME_MODE=selfcheck
-export SC_SECONDS="${SC_SECONDS:-140}"
+export SC_SECONDS="${SC_SECONDS:-300}"
 
 if [ "${1:-}" = "--headless" ]; then
 	status=0
