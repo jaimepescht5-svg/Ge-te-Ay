@@ -1,9 +1,0 @@
-# Godot import cache + engine binary are machine-local, never committed.
-.godot/
-engine/
-*.import
-
-# Local run artifacts (telemetry/frames land in the user data dir, but ignore
-# any that get redirected here).
-out/
-*.tmp

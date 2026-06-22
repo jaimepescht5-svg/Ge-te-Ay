@@ -1,4 +1,0 @@
-# viz host-side dependencies (dev-time only; not part of any shipped game)
-Pillow>=10
-imageio>=2.34
-imageio-ffmpeg>=0.4
