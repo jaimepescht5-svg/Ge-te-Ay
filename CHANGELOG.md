@@ -2,6 +2,18 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 4 — Craft & Production
+- Added four craft/production docs:
+  - 20 Tech & Production — technical pillars, engine stance, scope discipline,
+    milestone roadmap, team shape, no-crunch ethics, risk register
+  - 21 Phone & Meta UI — the diegetic phone hub (apps, notifications, map),
+    HUD philosophy, the Crew Wheel
+  - 22 Sample Mission Script — "Wash Day" written out in full to lock the voice
+    and show systems-in-fiction
+  - 23 Accessibility — full spec across motor, visual, hearing, cognitive, and
+    content-sensitivity, plus process commitments
+- Updated README doc map.
+
 ## Round 3 — Content Depth
 - Added four content/system docs:
   - 17 Heist Catalog — the 9 marquee scores (H1–H9), each with Quiet/Loud/Clever

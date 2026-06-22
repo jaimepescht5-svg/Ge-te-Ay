@@ -68,6 +68,10 @@ the full firewall.
 | [17 — Heist Catalog](docs/17-heist-catalog.md) | The nine marquee scores |
 | [18 — Side Stories](docs/18-side-stories.md) | Character arcs, strangers, collectibles |
 | [19 — Living World & AI](docs/19-living-world-ai.md) | NPC ecology, faction AI, emergent systems |
+| [20 — Tech & Production](docs/20-tech-and-production.md) | Engine pillars, scope, milestones, risks |
+| [21 — Phone & Meta UI](docs/21-the-phone-and-meta-ui.md) | The in-fiction phone hub and HUD |
+| [22 — Sample Mission Script](docs/22-sample-mission-script.md) | "Wash Day" written out to show the voice |
+| [23 — Accessibility](docs/23-accessibility.md) | The full accessibility spec |
 
 ---
 
