@@ -49,7 +49,7 @@ func _build_district(d: Dictionary) -> void:
 	var cz: float = d["cz"]
 	var w: float = d["w"]
 	var dep: float = d["d"]
-	var ground_col := m._hex(d["ground"])
+	var ground_col: Color = m._hex(d["ground"])
 	var palette: Array = d["palette"]
 	var style: String = d["style"]
 	var density: float = d["density"]
@@ -103,19 +103,19 @@ func _build_district(d: Dictionary) -> void:
 	var attempts := 0
 	while placed < count and attempts < count * 6 + 10:
 		attempts += 1
-		var lx := m.rng.randf_range(-hw + 8.0, hw - 8.0)
-		var lz := m.rng.randf_range(-hd + 8.0, hd - 8.0)
+		var lx: float = m.rng.randf_range(-hw + 8.0, hw - 8.0)
+		var lz: float = m.rng.randf_range(-hd + 8.0, hd - 8.0)
 		# clear a cross through the centre so the road grid stays drivable
 		if absf(lx) < road_clear or absf(lz) < road_clear:
 			continue
-		var bw := m.rng.randf_range(5.0, 12.0)
-		var bd := m.rng.randf_range(5.0, 12.0)
+		var bw: float = m.rng.randf_range(5.0, 12.0)
+		var bd: float = m.rng.randf_range(5.0, 12.0)
 		# keep the whole waypoint tour drivable: never block a road corridor
 		if _near_route(Vector2(cx + lx, cz + lz), maxf(bw, bd) * 0.5 + m.ROAD_HALF_WIDTH):
 			continue
 		placed += 1
 		var bh := _building_height(style)
-		var ccol := m._hex(palette[m.rng.randi_range(0, palette.size() - 1)])
+		var ccol: Color = m._hex(palette[m.rng.randi_range(0, palette.size() - 1)])
 		_place_building(Vector3(cx + lx, 0, cz + lz), Vector3(bw, bh, bd), ground_col, ccol)
 
 func _building_height(style: String) -> float:
@@ -337,8 +337,8 @@ func _build_atmosphere() -> void:
 	# downtown neon signs: glowing emissive panels + a matching point light
 	var neon_cols := [0xff2a6d, 0x05d9e8, 0xb967ff, 0xf9f871, 0xff7b00]
 	for i in range(8):
-		var x := m.rng.randf_range(-90.0, 90.0)
-		var z := -40.0 + m.rng.randf_range(-90.0, 90.0)
+		var x: float = m.rng.randf_range(-90.0, 90.0)
+		var z: float = -40.0 + m.rng.randf_range(-90.0, 90.0)
 		var c: int = neon_cols[i % neon_cols.size()]
 		var sign := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -390,7 +390,7 @@ func _build_atmosphere() -> void:
 		var cmat := StandardMaterial3D.new()
 		cmat.albedo_color = m._hex(0x183a1a)
 		cone.material_override = cmat
-		var cx := -250.0 + m.rng.randf_range(-120.0, 120.0)
-		var cz := 360.0 + m.rng.randf_range(-110.0, 110.0)
+		var cx: float = -250.0 + m.rng.randf_range(-120.0, 120.0)
+		var cz: float = 360.0 + m.rng.randf_range(-110.0, 110.0)
 		cone.position = Vector3(cx, cm.height * 0.5, cz)
 		m.add_child(cone)
