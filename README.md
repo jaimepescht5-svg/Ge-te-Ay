@@ -89,7 +89,7 @@ the full firewall.
 | [22 — Sample Mission Script](docs/22-sample-mission-script.md) | "Wash Day" written out to show the voice |
 | [23 — Accessibility](docs/23-accessibility.md) | The full accessibility spec |
 | [24 — World Lore & Timeline](docs/24-world-lore-timeline.md) | The deep history of Solano County |
-| [24a — AI Development & Self-Observation](docs/24-ai-development-and-self-observation.md) | How this gets built by an AI — and the hard wall of taste |
+| [24a — AI Development & Self-Observation](docs/24a-ai-development-and-self-observation.md) | How this gets built by an AI — and the hard wall of taste |
 | [25 — Glossary & Slang](docs/25-glossary-slang.md) | Team terminology + in-world street slang |
 | [26 — Pitch & Positioning](docs/26-pitch-and-positioning.md) | The elevator pitch and market framing |
 | [27 — Vehicle Catalog](docs/27-vehicle-catalog.md) | The full fleet: land, sea, air |
@@ -158,7 +158,7 @@ cd game && python3 -m http.server 8000   # then open http://localhost:8000
 **Godot engine prototype** — [`prototype/neon-delta-slice/`](prototype/neon-delta-slice/)
 is a real-engine (Godot 4.3) gray-box driving slice with a self-observation rig:
 a bot drives headlessly, the engine captures frames + telemetry, and a self-check
-asserts the slice is stable. See [doc 24a](docs/24-ai-development-and-self-observation.md).
+asserts the slice is stable. See [doc 24a](docs/24a-ai-development-and-self-observation.md).
 
 ---
 

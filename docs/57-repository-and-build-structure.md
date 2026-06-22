@@ -65,7 +65,7 @@ targets; the essentials:
 
 ## The self-observation rig, in one picture
 
-This is the loop from [doc 24](24-ai-development-and-self-observation.md), made
+This is the loop from [doc 24](24a-ai-development-and-self-observation.md), made
 concrete by the scaffolding:
 
 ```

@@ -87,4 +87,4 @@ You can take correctness and playability to the wall by yourself. **Feel,
 beauty, tension, and "is the city alive" are a human's call.** When you reach the
 point where the only thing left to improve is something you cannot measure,
 *stop and surface it* rather than optimizing a proxy. That hand-off is the whole
-method — see [`docs/24-ai-development-and-self-observation.md`](docs/24-ai-development-and-self-observation.md).
+method — see [`docs/24a-ai-development-and-self-observation.md`](docs/24a-ai-development-and-self-observation.md).

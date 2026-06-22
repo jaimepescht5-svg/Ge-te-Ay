@@ -1,7 +1,7 @@
 # viz — visual-check harness
 
 A small tool to close the **visual** half of the self-observation loop
-([doc 24](../../docs/24-ai-development-and-self-observation.md)): render a Godot
+([doc 24](../../docs/24a-ai-development-and-self-observation.md)): render a Godot
 scene with no GPU, glance it as one image, and hand a human a clip to confirm.
 
 ```
