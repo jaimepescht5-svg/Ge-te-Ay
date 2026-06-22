@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 10 — Senses & The Whole Map
+- Added three docs:
+  - 39 Game Feel & Juice — input, speed-reactive camera, driving/combat/traversal
+    feel, haptics, "juice," and the feel review gate
+  - 40 Sound Design — per-district ambience, foley, weapon/vehicle audio, the
+    storm as an audio set-piece, accessibility mix rules
+  - 41 The Rest of the Map — design briefs bringing the other six districts to a
+    consistent ship-quality level (identity, landmarks, system fantasy, content)
+- Updated README doc map.
+
 ## Round 9 — Interiority & Living Calendar
 - Added three docs:
   - 36 Character Bios — full deep backstories, wounds, and arc questions for the

@@ -87,6 +87,9 @@ the full firewall.
 | [36 — Character Bios](docs/36-character-bios.md) | Deep backstories for the principal cast |
 | [37 — Radio Programming](docs/37-radio-programming.md) | Station programming, original tracks, ad reads |
 | [38 — Dynamic Events Calendar](docs/38-dynamic-events-calendar.md) | The living city's cyclical, scheduled & reactive events |
+| [39 — Game Feel & Juice](docs/39-game-feel-and-juice.md) | Camera, input, haptics, and the polish that sells it |
+| [40 — Sound Design](docs/40-sound-design.md) | Ambience, foley, weapons, vehicles, the storm |
+| [41 — The Rest of the Map](docs/41-districts-the-rest.md) | Design briefs for the other six districts |
 
 ---
 
