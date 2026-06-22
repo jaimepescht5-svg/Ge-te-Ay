@@ -60,6 +60,10 @@ the full firewall.
 | [10 — Economy & Progression](docs/10-economy-progression.md) | Money, businesses, skills |
 | [11 — Online & Shared World](docs/11-online-multiplayer.md) | The persistent multiplayer city |
 | [12 — Legal Distinctiveness](docs/12-legal-distinctiveness.md) | Keeping it original |
+| [13 — Radio & Music](docs/13-radio-music.md) | The dial, DJs, and adaptive score |
+| [14 — Brand Bible](docs/14-brand-bible.md) | Every invented brand in the world |
+| [15 — Art Direction](docs/15-art-direction.md) | The visual identity |
+| [16 — Vertical Slice: Prologue](docs/16-vertical-slice-prologue.md) | The playable opening, beat by beat |
 
 ---
 

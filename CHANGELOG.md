@@ -2,6 +2,18 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 2 — Texture & Voice
+- Added four flavor-and-depth docs that give the world its accent:
+  - 13 Radio & Music (12-station dial, DJs, reactive talk radio, adaptive score
+    with per-lead leitmotifs and a storm motif)
+  - 14 Brand Bible (master list of invented brands: food, tech/apps, megaprojects,
+    vehicle makes, weapon manufacturers, media, with satirical ad voice)
+  - 15 Art Direction (the "sun-bleached paradise rotting at the waterline" look;
+    per-district palettes, lighting moods, UI identity, photo mode, VFX)
+  - 16 Vertical Slice — the playable prologue "The Sure Thing" beat by beat,
+    teaching the three leads + the switch and ending on the welding hook
+- Updated README doc map.
+
 ## Round 1 — Foundation
 - Established the original IP: **NEON DELTA**, set in **Port Soleil, Solano County**.
 - Wrote the core bible: README + 12 foundational docs.
