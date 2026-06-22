@@ -26,7 +26,7 @@ The repo is two things at once:
 
 **New to the project?** Read [`docs/00-index.md`](docs/00-index.md) (orientation)
 then [`docs/01-vision.md`](docs/01-vision.md). For *how it gets built by an AI*,
-read [`docs/24-ai-development-and-self-observation.md`](docs/24-ai-development-and-self-observation.md)
+read [`docs/24a-ai-development-and-self-observation.md`](docs/24a-ai-development-and-self-observation.md)
 — it is the philosophical core of this whole repository.
 
 ---
@@ -66,7 +66,7 @@ good ideas conflict, the one serving the higher pillar wins.
 
 ## The taste wall (the one rule unique to an AI-built project)
 
-From [`docs/24-ai-development-and-self-observation.md`](docs/24-ai-development-and-self-observation.md),
+From [`docs/24a-ai-development-and-self-observation.md`](docs/24a-ai-development-and-self-observation.md),
 the three tiers of "good":
 
 | Tier | Question | Who answers |

@@ -30,14 +30,11 @@ const TURN_SPEED := 10.0      # how fast the body faces its travel direction
 const ARENA := 60.0          # half-extent of the walled flat ground
 
 # ---- selfcheck ----
-const SELFCHECK_SECONDS := 60.0
-const CAPTURE_INTERVAL := 1.5
+const SELFCHECK_SECONDS := 60.0   # room for the full enter-car / drive / exit loop
+# Frame capture is handled by the VizCapture autoload (scripts/capture.gd).
 
 var mode := "play"
 var selfcheck_seconds := SELFCHECK_SECONDS
-var capture_interval := CAPTURE_INTERVAL
-var capture_max := 40
-var frames_dir := "user://frames_foot"
 
 var player: CharacterBody3D
 var player_yaw := 0.0
@@ -98,8 +95,6 @@ var car_prev_pos := Vector3.ZERO
 
 # telemetry / state
 var sim_time := 0.0
-var next_capture := 0.0
-var capture_index := 0
 var start_pos := Vector3.ZERO
 var distance := 0.0
 var prev_pos := Vector3.ZERO
@@ -119,16 +114,6 @@ func _ready() -> void:
 	var sc := OS.get_environment("SC_SECONDS")
 	if sc != "":
 		selfcheck_seconds = float(sc)
-	var ci := OS.get_environment("CAP_INTERVAL")
-	if ci != "":
-		capture_interval = float(ci)
-	var cm := OS.get_environment("CAP_MAX")
-	if cm != "":
-		capture_max = int(cm)
-	var vo := OS.get_environment("VIZ_OUT")
-	if vo != "":
-		frames_dir = vo
-
 	_build_environment()
 	_build_ground()
 	_build_walls()
@@ -789,9 +774,6 @@ func _reset_player() -> void:
 func _process(_d: float) -> void:
 	_update_camera()
 	_update_hud()
-	if mode == "selfcheck" and sim_time >= next_capture:
-		next_capture += capture_interval
-		_capture_frame()
 
 func _update_camera() -> void:
 	if cam == null or player == null:
@@ -836,21 +818,12 @@ func _update_hud() -> void:
 		targets_destroyed, target_pos.size(), stars, pursuers.size(),
 	]
 
-func _capture_frame() -> void:
-	if DisplayServer.get_name() == "headless" or capture_index >= capture_max:
-		capture_index += 1
-		return
-	var img := get_viewport().get_texture().get_image()
-	DirAccess.make_dir_recursive_absolute(frames_dir)
-	img.save_png("%s/foot_%04d.png" % [frames_dir, capture_index])
-	capture_index += 1
-
 # ----------------------------------------------------------------- selfcheck
 func _finish_selfcheck() -> void:
 	set_physics_process(false)
 	set_process(false)
 	print("[sandbox] finishing at sim_time=%.1f reached=%d/%d frames=%d" % [
-		sim_time, waypoints_reached, waypoints.size(), capture_index,
+		sim_time, waypoints_reached, waypoints.size(), VizCapture.idx,
 	])
 	var grounded := (min_y > -2.0) and (max_y < 5.0)
 	var checks := []
@@ -869,7 +842,7 @@ func _finish_selfcheck() -> void:
 	checks.append(_check("got in a car", entered_car))
 	checks.append(_check("drove the car (>15 m)", car_distance > 15.0))
 	checks.append(_check("got back out on foot", exited_car and control_mode == "foot"))
-	checks.append(_check("captured frames for visual review", capture_index >= 3))
+	checks.append(_check("captured frames for visual review", VizCapture.idx >= 3))
 
 	var passed := true
 	for c in checks:
@@ -896,7 +869,7 @@ func _finish_selfcheck() -> void:
 		"entered_car": entered_car,
 		"exited_car": exited_car,
 		"car_distance_m": car_distance,
-		"frames_captured": capture_index,
+		"frames_captured": VizCapture.idx,
 		"checks": checks,
 		"passed": passed,
 	}

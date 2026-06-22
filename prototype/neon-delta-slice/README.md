@@ -8,7 +8,7 @@ A tiny, **real-engine** playable slice of the signature NEON DELTA verb:
 2. An AI can build and **observe its own work** on a game — autonomously
    driving the loop on everything measurable, while a human stays the judge of
    feel. (The method is written up in
-   [doc 24](../../docs/24-ai-development-and-self-observation.md).)
+   [doc 24](../../docs/24a-ai-development-and-self-observation.md).)
 
 It runs on **Godot 4.3**, a genuine game engine, with real `VehicleBody3D`
 physics, collisions, and rendering — not a hand-rolled simulation.
@@ -99,7 +99,7 @@ frames were captured for visual review. It writes:
 Whether the driving is **fun**. The bot can tell you a lap is *completable,
 fair, and stable*; it cannot tell you the car feels good to throw into a
 corner. That is the one wire left for the human judge — by design. See
-[doc 24](../../docs/24-ai-development-and-self-observation.md).
+[doc 24](../../docs/24a-ai-development-and-self-observation.md).
 
 ## Bugs the self-observation loop actually caught
 

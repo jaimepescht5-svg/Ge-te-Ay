@@ -102,7 +102,7 @@ at the repo root: **[CLAUDE.md](../CLAUDE.md)** (rules, the taste wall, commands
 **[CONTRIBUTING.md](../CONTRIBUTING.md)** (branch + integration workflow, gates),
 and **[57 — Repository & Build Structure](57-repository-and-build-structure.md)**
 (where everything lives and how to run/verify it). The method behind it all is
-**[24 — AI Development & Self-Observation](24-ai-development-and-self-observation.md)**.
+**[24a — AI Development & Self-Observation](24a-ai-development-and-self-observation.md)**.
 Run `make help` for every task; `make check` is the gate.
 
 ## Build history

@@ -48,6 +48,8 @@ def cmd_run(args):
     if args.frames_out:
         env["VIZ_OUT"] = os.path.abspath(args.frames_out)
         os.makedirs(env["VIZ_OUT"], exist_ok=True)
+        if not args.headless:
+            env.setdefault("VIZ_CAPTURE", "1")
     if args.headless:
         cmd = [engine, "--headless", "--path", args.project]
     else:
