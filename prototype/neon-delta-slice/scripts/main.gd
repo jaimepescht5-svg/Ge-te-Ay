@@ -159,7 +159,6 @@ var weapons := [
 ]
 var weapon_idx := 0
 var fire_cooldown := 0.0
-var f_held := false
 var ammo_crates: Array = []   # {node, timer:float, active:bool}
 
 # traffic (civilian NPC cars)
