@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 11 — Mechanical & Thematic Capstones
+- Added three docs:
+  - 42 Signature Abilities — full mechanical design of Redline/Overwatch/Hot
+    Streak (inputs, Focus economy, upgrade trees, switch synergy)
+  - 43 Achievements & 100% Completion — the no-grind trophy list and the finite,
+    "best-of-the-game" completion definition
+  - 44 Themes & Meaning — the essay tying every system to the thesis (who owns a
+    place / reinvention / the flood as reckoning; theme-as-mechanic)
+- Updated README doc map.
+
 ## Round 10 — Senses & The Whole Map
 - Added three docs:
   - 39 Game Feel & Juice — input, speed-reactive camera, driving/combat/traversal

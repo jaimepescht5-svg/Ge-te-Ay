@@ -90,6 +90,9 @@ the full firewall.
 | [39 — Game Feel & Juice](docs/39-game-feel-and-juice.md) | Camera, input, haptics, and the polish that sells it |
 | [40 — Sound Design](docs/40-sound-design.md) | Ambience, foley, weapons, vehicles, the storm |
 | [41 — The Rest of the Map](docs/41-districts-the-rest.md) | Design briefs for the other six districts |
+| [42 — Signature Abilities](docs/42-signature-abilities.md) | Full design of Redline, Overwatch, Hot Streak |
+| [43 — Achievements & Completion](docs/43-achievements-and-completion.md) | The trophy list and 100% definition |
+| [44 — Themes & Meaning](docs/44-themes-and-meaning.md) | What the game is actually about |
 
 ---
 
