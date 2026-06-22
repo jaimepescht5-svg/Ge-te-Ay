@@ -108,6 +108,7 @@ func _ready() -> void:
 	_build_environment()
 	_build_ground()
 	_build_walls()
+	_build_skyline()
 	_build_obstacles()
 	_build_targets()
 	_build_player()
@@ -131,17 +132,25 @@ func _build_environment() -> void:
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.05, 0.06, 0.09)
+	e.background_color = Color(0.02, 0.02, 0.05)            # deep night
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.35, 0.38, 0.48)
-	e.ambient_light_energy = 0.7
+	e.ambient_light_color = Color(0.12, 0.14, 0.26)        # cool, dim — let neon pop
+	e.ambient_light_energy = 0.5
+	# bloom so the emissive neon actually glows (harmless if the GL renderer
+	# can't post-process it).
+	e.glow_enabled = true
+	e.glow_intensity = 0.9
+	e.glow_strength = 1.1
+	e.glow_bloom = 0.3
+	e.glow_hdr_threshold = 0.85
 	env.environment = e
 	add_child(env)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-55, -40, 0)
-	sun.light_energy = 1.1
-	sun.light_color = Color(1.0, 0.95, 0.85)
-	add_child(sun)
+	# a low, cool "moon" so geometry still reads in shadow
+	var moon := DirectionalLight3D.new()
+	moon.rotation_degrees = Vector3(-60, -50, 0)
+	moon.light_energy = 0.35
+	moon.light_color = Color(0.6, 0.7, 1.0)
+	add_child(moon)
 
 func _build_ground() -> void:
 	var body := StaticBody3D.new()
@@ -155,11 +164,37 @@ func _build_ground() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(ARENA * 2.0, ARENA * 2.0)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.10, 0.11, 0.13)
+	mat.albedo_color = Color(0.03, 0.03, 0.05)
+	mat.metallic = 0.3
+	mat.roughness = 0.4
 	plane.material = mat
 	mesh.mesh = plane
 	body.add_child(mesh)
 	add_child(body)
+	_build_grid()
+
+func _build_grid() -> void:
+	# a glowing neon floor grid — the signature NEON DELTA look.
+	var step := 10.0
+	var n := int(ARENA / step)
+	var line_mat := StandardMaterial3D.new()
+	line_mat.albedo_color = Color(0.02, 0.55, 0.65)
+	line_mat.emission_enabled = true
+	line_mat.emission = Color(0.05, 0.85, 0.95)            # cyan
+	line_mat.emission_energy_multiplier = 1.6
+	for i in range(-n, n + 1):
+		var x := i * step
+		_grid_line(Vector3(x, 0.03, 0), Vector3(0.12, 0.04, ARENA * 2), line_mat)
+		_grid_line(Vector3(0, 0.03, x), Vector3(ARENA * 2, 0.04, 0.12), line_mat)
+
+func _grid_line(pos: Vector3, size: Vector3, mat: StandardMaterial3D) -> void:
+	var m := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	m.mesh = bm
+	m.material_override = mat
+	m.position = pos
+	add_child(m)
 
 func _build_walls() -> void:
 	# four perimeter walls so the player (and pursuers) are contained.
@@ -180,12 +215,63 @@ func _wall(pos: Vector3, size: Vector3) -> void:
 	var bm := BoxMesh.new()
 	bm.size = size
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.16, 0.18, 0.24)
+	mat.albedo_color = Color(0.05, 0.06, 0.10)
+	mat.metallic = 0.4
+	mat.roughness = 0.5
 	mesh.mesh = bm
 	mesh.material_override = mat
 	body.add_child(mesh)
+	# glowing magenta cap so edges read in the dark
+	var strip := MeshInstance3D.new()
+	var sb := BoxMesh.new()
+	sb.size = Vector3(size.x * 1.01, 0.18, size.z * 1.01)
+	var smat := StandardMaterial3D.new()
+	smat.albedo_color = Color(1.0, 0.16, 0.43)
+	smat.emission_enabled = true
+	smat.emission = Color(1.0, 0.16, 0.43)             # magenta
+	smat.emission_energy_multiplier = 1.8
+	strip.mesh = sb
+	strip.material_override = smat
+	strip.position.y = size.y * 0.5
+	mesh.add_child(strip)
 	body.position = pos
 	add_child(body)
+
+func _build_skyline() -> void:
+	# a ring of dark towers with neon vertical strips, just outside the arena —
+	# Port Soleil on the horizon. Pure atmosphere (no collision needed).
+	var hues := [Color(0.05, 0.85, 0.95), Color(1.0, 0.16, 0.43), Color(0.7, 0.4, 1.0), Color(0.2, 1.0, 0.5)]
+	var count := 22
+	for i in range(count):
+		var ang := TAU * float(i) / float(count)
+		var r := ARENA + 14.0 + randf() * 26.0
+		var h := 16.0 + randf() * 60.0
+		var pos := Vector3(cos(ang) * r, h * 0.5, sin(ang) * r)
+		var tower := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		var w := 6.0 + randf() * 6.0
+		bm.size = Vector3(w, h, w)
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.03, 0.04, 0.08)
+		tower.mesh = bm
+		tower.material_override = mat
+		tower.position = pos
+		add_child(tower)
+		# a couple of glowing window bands
+		var hue: Color = hues[i % hues.size()]
+		for b in range(2):
+			var band := MeshInstance3D.new()
+			var bb := BoxMesh.new()
+			bb.size = Vector3(w * 1.02, 1.4 + randf() * 2.0, w * 1.02)
+			var bmat := StandardMaterial3D.new()
+			bmat.albedo_color = hue
+			bmat.emission_enabled = true
+			bmat.emission = hue
+			bmat.emission_energy_multiplier = 2.2
+			band.mesh = bb
+			band.material_override = bmat
+			band.position = Vector3(pos.x, h * (0.4 + 0.3 * b), pos.z)
+			add_child(band)
 
 func _build_obstacles() -> void:
 	# a few blocks to bump into / route around (collision coverage for the bot).
@@ -249,11 +335,17 @@ func _build_player() -> void:
 	mat.albedo_color = Color(1.0, 0.16, 0.43)          # NEON DELTA pink
 	mat.emission_enabled = true
 	mat.emission = Color(1.0, 0.16, 0.43)
-	mat.emission_energy_multiplier = 0.5
+	mat.emission_energy_multiplier = 1.7
 	mesh.mesh = cm
 	mesh.material_override = mat
 	mesh.position.y = 0.9
 	player.add_child(mesh)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.2, 0.5)
+	glow.light_energy = 2.0
+	glow.omni_range = 9.0
+	glow.position = Vector3(0, 1.2, 0)
+	player.add_child(glow)
 	# a little "nose" so facing is visible
 	var nose := MeshInstance3D.new()
 	var nb := BoxMesh.new()
@@ -404,6 +496,12 @@ func _spawn_pursuer() -> void:
 	mesh.position.y = 0.9
 	mesh.material_override = mat
 	cop.add_child(mesh)
+	var light := OmniLight3D.new()
+	light.light_color = Color(0.1, 0.9, 1.0)
+	light.light_energy = 2.4
+	light.omni_range = 11.0
+	light.position = Vector3(0, 1.4, 0)
+	cop.add_child(light)
 	# spawn at an arena corner away from the player
 	var p := player.global_position
 	var corner := Vector3(ARENA - 4, 1.0, ARENA - 4)
@@ -502,9 +600,9 @@ func _update_camera() -> void:
 		return
 	var p := player.global_position
 	var back := Vector3(-sin(player_yaw), 0, -cos(player_yaw))
-	var target := p + back * 9.0 + Vector3.UP * 6.0
-	cam.global_position = cam.global_position.lerp(target, 0.12)
-	cam.look_at(p + Vector3.UP * 1.0, Vector3.UP)
+	var target := p + back * 8.0 + Vector3.UP * 4.6
+	cam.global_position = cam.global_position.lerp(target, 0.14)
+	cam.look_at(p + Vector3.UP * 1.3, Vector3.UP)
 
 func _update_hud() -> void:
 	if hud == null:
