@@ -2,6 +2,12 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 19 — Boatable canals in The Cut
+- The Cut's canals are now **real water** carved out of the district: boats can
+  navigate them, cars/cops/pedestrians can't, and the channels **connect to the
+  open sea** at both ends so you can boat in off the bay. Central **road bridges**
+  keep the district drivable. Verified sea-to-sea continuity and bridge solidity.
+
 ## Round 18 — Boats & the hurricane
 - **Boats**: water vehicles moored at six marinas around the islands. Press **F**
   to commandeer one and cross the open sea between districts — boats are blocked

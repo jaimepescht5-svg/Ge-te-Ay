@@ -60,6 +60,9 @@ Click the title screen to start (this also locks the mouse and starts audio).
   **bridges** you drive across; the water is a hard edge (cars and cops can't swim).
   **Steal a boat** moored at the marinas (press **F**) to cut straight across the
   sea between islands and ride the tide ([vehicles](../docs/08-vehicles.md)).
+- **Boatable canals** — **The Cut** is threaded by working **canals** that connect
+  to the open sea: boats glide through them, cars can't, and road **bridges** keep
+  the district drivable ([The Cut](../docs/33-district-deepdive-the-cut.md)).
 - **Landmarks for navigation** — the **Crane Tower**, **The Ark** arcology, the
   **Lighthouse**, the **Drawbridge**, and the **Dead Mall** anchor the map so you
   build it in your head ([art direction](../docs/15-art-direction.md)).
@@ -92,8 +95,7 @@ keeps to one self-contained file with no build step so anyone can run it in seco
 
 Natural next steps (see the bible): the three switchable leads as a true mid-mission
 **switch** ([doc 03](../docs/03-characters.md)), the four-phase **heists**
-([doc 07](../docs/07-missions.md)), boatable **canals** inside The Cut, and better
-art/audio.
+([doc 07](../docs/07-missions.md)), and better art/audio.
 
 ---
 

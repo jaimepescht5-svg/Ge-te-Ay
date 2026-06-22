@@ -181,6 +181,7 @@ function boot(){
   const buildings = [];               // {x,z,hw} footprints for collision
   const landRects = [];               // {minx,maxx,minz,maxz} drivable district areas
   const causeways = [];               // {ax,az,bx,bz,hw} bridge segments (also land)
+  const canals = [];                  // {z,halfW,minx,maxx,bx,bhalf} boatable water cut into a district
   const floodSheets = [];             // {mesh, base} tide overlays on low districts
   const world = {};                   // landmark positions (crane, ark, lighthouse, ...)
   const cityGroup = new THREE.Group(); scene.add(cityGroup);
@@ -287,12 +288,24 @@ function boot(){
     const stepx=D.w/nx, stepz=D.d/nz;
     for(let i=0;i<nx;i++) for(let j=0;j<nz;j++){
       const cxp=D.minx+stepx*(i+0.5), czp=D.minz+stepz*(j+0.5);
-      // The Cut: carve canals along a couple of rows (boat-roads; flood first)
+      // The Cut: real boatable canals — water cut across the district that
+      // connects to the open sea at both ends, with a road bridge in the middle.
       if(D.style==='rowhouse' && (j===1 || j===nz-2)){
-        const canal=new THREE.Mesh(new THREE.PlaneGeometry(stepx*0.96, stepz*0.5),
-          new THREE.MeshStandardMaterial({color:0x06212e, metalness:0.6, roughness:0.3,
-            emissive:0x05222e, emissiveIntensity:0.5}));
-        canal.rotation.x=-Math.PI/2; canal.position.set(cxp,0.03,czp); scene.add(canal);
+        if(i===0){
+          const halfW=10, bhalf=9;
+          canals.push({z:czp, halfW, minx:D.minx, maxx:D.maxx, bx:D.cx, bhalf});
+          // continuous canal water plane (extends a touch past the edges into the sea)
+          const canal=new THREE.Mesh(new THREE.PlaneGeometry(D.w+24, halfW*2),
+            new THREE.MeshStandardMaterial({color:0x06212e, metalness:0.6, roughness:0.3,
+              emissive:0x05222e, emissiveIntensity:0.5}));
+          canal.rotation.x=-Math.PI/2; canal.position.set(D.cx,0.03,czp); scene.add(canal);
+          // the road bridge over the canal (drivable; keeps the district connected)
+          const deck=new THREE.Mesh(new THREE.BoxGeometry(bhalf*2,0.5,halfW*2+4),
+            new THREE.MeshStandardMaterial({color:0x20242e, roughness:0.7, metalness:0.2}));
+          deck.position.set(D.cx,0.3,czp); scene.add(deck);
+          for(const s of [-1,1]){ const rail=new THREE.Mesh(new THREE.BoxGeometry(bhalf*2,0.7,0.4),
+            neonMat(0xff7b00,0.9)); rail.position.set(D.cx,0.7,czp+s*(halfW+1.6)); scene.add(rail); }
+        }
         continue;
       }
       if(R()>D.density) continue;
@@ -390,8 +403,19 @@ function boot(){
   }
 
   /* ---------- land / water ---------- */
+  // True if a point sits in canal water (boatable) — and not on the canal's bridge.
+  function inCanal(x,z){
+    for(const c of canals){
+      if(Math.abs(z-c.z)<c.halfW && x>c.minx-12 && x<c.maxx+12){
+        if(Math.abs(x-c.bx)<c.bhalf) return false;   // the road bridge is solid
+        return true;
+      }
+    }
+    return false;
+  }
   // A point is "land" (drivable) if it's inside a district or on a causeway deck.
   function isLand(x,z){
+    if(inCanal(x,z)) return false;       // canals are water, even inside a district
     for(const r of landRects){ if(x>r.minx&&x<r.maxx&&z>r.minz&&z<r.maxz) return true; }
     for(const c of causeways){
       const dx=c.bx-c.ax, dz=c.bz-c.az, L2=dx*dx+dz*dz;
