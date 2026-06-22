@@ -240,7 +240,11 @@ func _ready() -> void:
 		selfcheck_seconds = float(sc)
 	var ts := OS.get_environment("TIME_SCALE")
 	if ts != "":
-		Engine.time_scale = float(ts)
+		var ts_val := float(ts)
+		Engine.time_scale = ts_val
+		# Scale physics ticks proportionally: keeps each simulated step at 1/60 s
+		# so VehicleBody3D stays stable at any time_scale. 15× → 900 ticks/s.
+		Engine.physics_ticks_per_second = int(60.0 * ts_val)
 	rng.seed = 12345
 	headless = DisplayServer.get_name() == "headless"
 

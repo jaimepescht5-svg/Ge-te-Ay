@@ -53,15 +53,19 @@ scripts/capture.gd    — viz frame grabber autoload
 ```
 
 ### 2. Selfcheck must always pass
-Run this after every single feature, before committing:
+Run this after every single change, before committing (~20 real seconds):
 ```bash
 cd prototype/neon-delta-slice
-GAME_MODE=selfcheck SC_SECONDS=60 ./engine/Godot_v4.3-stable_linux.x86_64 \
-  --headless --path . 2>/dev/null | grep -E "====|PASS|FAIL|sim="
+TIME_SCALE=15 GAME_MODE=selfcheck SC_SECONDS=300 \
+  ./engine/Godot_v4.3-stable_linux.x86_64 --headless --path . 2>/dev/null \
+  | grep -E "====|PASS|FAIL|sim="
 ```
 Required output: `==== PASS ====`
-Criteria: physics stable, car moved, top speed >50 km/h, ≥10 waypoints (in 300s run),
+Criteria: physics stable, car moved >1000 m, top speed >60 km/h, ≥10 waypoints,
 never fell off world (min_y > -5).
+
+TIME_SCALE=15 scales physics_ticks_per_second to 900 in main.gd, keeping each
+step at 1/60 s. Results are identical to a real 5-minute run.
 
 Never commit a broken selfcheck. Fix forward, not with workarounds.
 
@@ -216,19 +220,20 @@ centered at y=0 has its top at y=+1 — a 1m step the car can't climb.
 
 ## Selfcheck Quick Reference
 
+TIME_SCALE=15 makes 300 simulated seconds finish in ~20 real seconds.
+`Engine.physics_ticks_per_second` is scaled to match in main.gd, so each physics
+step is still 1/60 s — VehicleBody3D stays stable, thresholds are unchanged.
+
 ```bash
-# Fast sanity check (60s sim):
+# Standard check — 300 sim-seconds in ~20 real seconds (selfcheck.sh default):
 cd prototype/neon-delta-slice
-GAME_MODE=selfcheck SC_SECONDS=60 ./engine/Godot_v4.3-stable_linux.x86_64 \
-  --headless --path . 2>/dev/null | grep -E "====|PASS|FAIL|sim="
+TIME_SCALE=15 GAME_MODE=selfcheck SC_SECONDS=300 \
+  ./engine/Godot_v4.3-stable_linux.x86_64 --headless --path . 2>/dev/null \
+  | grep -E "====|PASS|FAIL|sim="
 
-# Full check (300s sim, definitive):
-GAME_MODE=selfcheck SC_SECONDS=300 ./engine/Godot_v4.3-stable_linux.x86_64 \
-  --headless --path . 2>/dev/null | grep -E "====|PASS|FAIL|sim="
-
-# With debug telemetry:
-ND_DEBUG=1 GAME_MODE=selfcheck SC_SECONDS=30 ./engine/Godot_v4.3-stable_linux.x86_64 \
-  --headless --path . 2>/dev/null
+# With debug telemetry (slow — no TIME_SCALE so you can read the output):
+ND_DEBUG=1 GAME_MODE=selfcheck SC_SECONDS=30 \
+  ./engine/Godot_v4.3-stable_linux.x86_64 --headless --path . 2>/dev/null
 
 # Watch commits land (progress monitor):
 git fetch origin claude/continuous-branch-integration-nkgogl && \
