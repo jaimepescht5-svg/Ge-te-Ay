@@ -50,8 +50,20 @@ Click the title screen to start (this also locks the mouse and starts audio).
 
 ## 🌃 What's in it
 
-- **An open neon city** — Port Soleil, procedurally laid out in a block grid with
-  glowing signs, traffic, and pedestrians, under a moody fog ([art direction](../docs/15-art-direction.md)).
+- **A districted archipelago** — Port Soleil and Solano County built as **seven
+  distinct districts** on land masses in an open sea, each with its own look,
+  building style, palette, and density ([map & districts](../docs/06-map-districts.md)):
+  *Downtown Core* (glass towers), *The Cut* (canal rowhouses — your spawn/home
+  turf), *Marisol Heights* (dry mansions), *The Reach* (industrial), *Cayo Brava*
+  (the keys), *Bayou Verde* (the swamp), and *Sabal Springs* (the suburb).
+- **The sea & causeways** — the districts are islands stitched together by
+  **bridges** you drive across; the water is a hard edge (cars and cops can't swim).
+- **Landmarks for navigation** — the **Crane Tower**, **The Ark** arcology, the
+  **Lighthouse**, the **Drawbridge**, and the **Dead Mall** anchor the map so you
+  build it in your head ([art direction](../docs/15-art-direction.md)).
+- **A living tide** — a dynamic **tide cycle** that rises and floods the low-lying
+  districts (The Cut, the Reach, Cayo Brava, the Glades) while the high ground
+  stays dry — the bible's thesis rendered as level geometry ([world](../docs/02-setting-world.md)).
 - **Driving** — steal any car and tear around with arcade handling, a handbrake,
   and a Redline boost ([vehicles](../docs/08-vehicles.md)).
 - **On-foot** — walk, sprint, and shoot in third person.
@@ -60,7 +72,8 @@ Click the title screen to start (this also locks the mouse and starts audio).
   you, and you can lose them or wreck them. Heat cools when you lie low
   ([Heat system](../docs/09-weapons-combat.md)).
 - **Delivery jobs** — drive to the markers to earn cash (more Heat = bigger payout).
-- **HUD + minimap + synth radio** for that Port Soleil feel.
+- **HUD + map + synth radio** — the HUD names the **district** you're in and shows
+  the **tide**; the minimap is a north-up overview of the whole county.
 
 ---
 
@@ -68,13 +81,13 @@ Click the title screen to start (this also locks the mouse and starts audio).
 
 This is a **playable prototype / vertical-slice toy**, not the full game in the
 bible. It proves the core loop — *drive, shoot, draw heat, lose the cops, get
-paid* — in a real 3D world you can move around in. It deliberately keeps to one
-self-contained file with no build step so anyone can run it in seconds.
+paid* — in a real, **districted 3D world** you can move around in. It deliberately
+keeps to one self-contained file with no build step so anyone can run it in seconds.
 
-Natural next steps (see the bible): the three switchable leads
-([doc 03](../docs/03-characters.md)), the four-phase heists
-([doc 07](../docs/07-missions.md)), the tide/storm world system
-([doc 02](../docs/02-setting-world.md)), and better art/audio.
+Natural next steps (see the bible): **boats** to use the tide and canals for
+traversal, the **hurricane** storm climax on top of the tide ([doc 02](../docs/02-setting-world.md)),
+the three switchable leads ([doc 03](../docs/03-characters.md)), the four-phase
+heists ([doc 07](../docs/07-missions.md)), and better art/audio.
 
 ---
 
