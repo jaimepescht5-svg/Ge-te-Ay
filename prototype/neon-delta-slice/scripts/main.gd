@@ -154,6 +154,10 @@ var shots_fired := 0
 var civilians: Array = []   # {car: VehicleBody3D, bot: WaypointBot}
 var civ_palette := [0xff2a6d, 0xffffff, 0xf9f871, 0x05d9e8, 0xc0c0c0, 0x1a2a6b]
 
+# pedestrian NPCs
+var peds: Array = []   # {body, target:Vector2, speed:float, scatter:float, d:Dictionary}
+var skin_tones := [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac]
+
 # lead character (cosmetic only)
 var leads := ["RAE", "THEO", "FRANKIE"]
 var lead_idx := 0
@@ -196,6 +200,7 @@ func _ready() -> void:
 	_build_camera()
 	_build_hud()
 	_build_traffic()
+	_build_peds()
 
 	bot = WaypointBot.new(WP)
 	in_car = true
@@ -879,6 +884,7 @@ func _physics_process(delta: float) -> void:
 	_update_heat(delta)
 	_update_pursuers(delta)
 	_update_traffic(delta)
+	_update_peds(delta)
 	_update_telemetry(delta)
 	if mode == "selfcheck":
 		_selfcheck_tick(delta)
@@ -1023,12 +1029,24 @@ func _shoot() -> void:
 	q.exclude = [player_body.get_rid()]
 	var hit := space.intersect_ray(q)
 	var hit_point: Vector3 = to
+	var hit_collider = null
 	if hit.has("position"):
 		hit_point = hit["position"]
+		hit_collider = hit.get("collider")
 	heat = minf(HEAT_MAX, heat + HEAT_PER_SHOT)
+	# a shot that strikes a pedestrian adds extra heat
+	if hit_collider != null and _is_ped(hit_collider):
+		heat = minf(HEAT_MAX, heat + 1.5)
 	heat_peak = maxf(heat_peak, heat)
 	heat_clean_timer = 0.0
+	_scatter_peds(hit_point)
 	_spawn_tracer(from, hit_point)
+
+func _is_ped(node) -> bool:
+	for ped in peds:
+		if ped["body"] == node:
+			return true
+	return false
 
 func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	if DisplayServer.get_name() == "headless":
@@ -1261,6 +1279,122 @@ func _update_traffic(_delta: float) -> void:
 		c.steering = -ctrl["steer"] * MAX_STEER
 		c.engine_force = ctrl["throttle"] * 1400.0
 		c.brake = ctrl["brake"] * 30.0
+
+# ----------------------------------------------------------------- pedestrians
+# ~36 CharacterBody3D pedestrians wandering the urban districts. Play-mode only:
+# in selfcheck the bot must run realtime headless physics, and dozens of extra
+# kinematic bodies would starve the waypoint loop (same reason as traffic).
+func _build_peds() -> void:
+	if mode != "play":
+		return
+	var per_district := 8
+	for d in DISTRICTS:
+		if d["id"] == "bayou" or d["id"] == "cayo":
+			continue   # less-urban; skip
+		for n in range(per_district):
+			_spawn_ped(d)
+
+func _spawn_ped(d: Dictionary) -> void:
+	var body := CharacterBody3D.new()
+	body.collision_layer = 4   # peds on their own layer
+	body.collision_mask = 1 | 4   # collide with world + each other
+	var col := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.3
+	cap.height = 1.8
+	col.shape = cap
+	col.position.y = 0.9
+	body.add_child(col)
+	# body capsule
+	var mesh := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = 0.3
+	cm.height = 1.8
+	mesh.mesh = cm
+	var shirt: int = d["palette"][rng.randi_range(0, d["palette"].size() - 1)]
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = _hex(shirt)
+	mesh.material_override = sm
+	mesh.position.y = 0.9
+	body.add_child(mesh)
+	# head cube
+	var head := MeshInstance3D.new()
+	var hb := BoxMesh.new()
+	hb.size = Vector3(0.4, 0.4, 0.4)
+	head.mesh = hb
+	var skin: int = skin_tones[rng.randi_range(0, skin_tones.size() - 1)]
+	var hm := StandardMaterial3D.new()
+	hm.albedo_color = _hex(skin)
+	head.material_override = hm
+	head.position.y = 1.9
+	body.add_child(head)
+	var hw: float = d["w"] * 0.5 - 10.0
+	var hd: float = d["d"] * 0.5 - 10.0
+	var sx: float = d["cx"] + rng.randf_range(-hw, hw)
+	var sz: float = d["cz"] + rng.randf_range(-hd, hd)
+	body.position = Vector3(sx, 1.0, sz)
+	add_child(body)
+	peds.append({
+		"body": body,
+		"target": _ped_pick(d),
+		"speed": rng.randf_range(1.2, 2.0),
+		"scatter": 0.0,
+		"scatter_dir": Vector2.ZERO,
+		"d": d,
+	})
+
+func _ped_pick(d: Dictionary) -> Vector2:
+	var hw: float = d["w"] * 0.5 - 10.0
+	var hd: float = d["d"] * 0.5 - 10.0
+	return Vector2(d["cx"] + rng.randf_range(-hw, hw), d["cz"] + rng.randf_range(-hd, hd))
+
+func _update_peds(delta: float) -> void:
+	var pp := _active_pos()
+	for ped in peds:
+		var body: CharacterBody3D = ped["body"]
+		if not is_instance_valid(body):
+			continue
+		var pos := Vector2(body.global_position.x, body.global_position.z)
+		# performance: disable physics on distant peds (rule 5)
+		var far := pos.distance_to(Vector2(pp.x, pp.z)) > 150.0
+		if far:
+			if body.is_physics_processing():
+				body.set_physics_process(false)
+			continue
+		var v := body.velocity
+		var move: Vector2
+		if ped["scatter"] > 0.0:
+			ped["scatter"] -= delta
+			move = ped["scatter_dir"] * 4.0
+		else:
+			var to_t: Vector2 = ped["target"] - pos
+			if to_t.length() < 2.0:
+				ped["target"] = _ped_pick(ped["d"])
+				to_t = ped["target"] - pos
+			move = to_t.normalized() * ped["speed"]
+		v.x = move.x
+		v.z = move.y
+		if not body.is_on_floor():
+			v.y -= GRAVITY * delta
+		else:
+			v.y = maxf(v.y, -0.1)
+		body.velocity = v
+		body.move_and_slide()
+		if move.length() > 0.1:
+			body.rotation.y = atan2(move.x, move.y)
+
+# Scatter peds near a shot impact: they flee at 4 m/s for 5s.
+func _scatter_peds(impact: Vector3) -> void:
+	for ped in peds:
+		var body: CharacterBody3D = ped["body"]
+		if not is_instance_valid(body):
+			continue
+		var pos := Vector2(body.global_position.x, body.global_position.z)
+		var ip := Vector2(impact.x, impact.z)
+		if pos.distance_to(ip) < 15.0:
+			ped["scatter"] = 5.0
+			var away := (pos - ip)
+			ped["scatter_dir"] = away.normalized() if away.length() > 0.01 else Vector2(1, 0)
 
 # ----------------------------------------------------------------- telemetry
 func _update_telemetry(_delta: float) -> void:
