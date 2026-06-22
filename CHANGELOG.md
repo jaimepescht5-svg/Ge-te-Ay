@@ -2,6 +2,17 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 18 — Boats & the hurricane
+- **Boats**: water vehicles moored at six marinas around the islands. Press **F**
+  to commandeer one and cross the open sea between districts — boats are blocked
+  by land (the inverse of cars), ride the tide, and bob in the chop. Shared
+  vehicle code with cars; disembarking always steps you onto solid ground.
+- **The hurricane season** (docs/02 climax): on a long cycle a **named hurricane**
+  builds, peaks at the eye, and passes — darkening skies, falling **rain**,
+  **lightning**, a **storm surge** that floods the low ground beyond its tidal
+  line, **evacuating** crowds, and **thinning** police. Live HUD warning, with the
+  surge folded into the tide system so flooding and the minimap react to it.
+
 ## Round 17 — BUILDING THE WORLD: a real city, not a grid
 - Replaced the prototype's flat, uniform neon grid with **Port Soleil as a
   districted archipelago** — the bible's #1 pillar ("The City Is the Star") made

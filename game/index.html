@@ -40,6 +40,9 @@
   .place { font-weight:800; letter-spacing:2px; font-size:14px; color:var(--cyan);
            text-shadow:0 0 8px var(--cyan); margin-top:8px; }
   .placetag { font-size:11px; color:#9fb3c8; letter-spacing:1px; margin-bottom:4px; opacity:.85; }
+  .storm { display:none; margin-top:8px; font-size:12px; font-weight:700; letter-spacing:1px;
+           color:#fff; background:rgba(255,42,109,.25); border:1px solid var(--pink);
+           border-radius:6px; padding:3px 8px; text-shadow:0 0 8px var(--pink); }
   /* crosshair */
   #cross { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:9;
            width:22px; height:22px; pointer-events:none; opacity:.8; }
@@ -95,10 +98,11 @@
   <div id="topright" class="panel">
     <div class="money" id="money">$0</div>
     <div class="stars" id="stars"></div>
+    <div id="storm" class="storm">⛈ HURRICANE</div>
     <div class="row" style="justify-content:flex-end"><span id="job">Find a job ▸</span></div>
   </div>
   <div id="bottom" class="panel">
-    <span id="hint">WASD move · MOUSE look · CLICK shoot · F enter/exit car · SHIFT sprint/boost · R radio</span>
+    <span id="hint">WASD move/drive · MOUSE look · CLICK shoot · F enter/exit car or boat · SHIFT sprint/boost · R radio</span>
   </div>
 </div>
 
@@ -112,10 +116,11 @@
   <div class="keys">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move / drive &nbsp;·&nbsp;
     <kbd>MOUSE</kbd> look &amp; aim &nbsp;·&nbsp; <kbd>CLICK</kbd> shoot &nbsp;·&nbsp;
-    <kbd>F</kbd> steal / exit car<br>
+    <kbd>F</kbd> steal / exit car or boat<br>
     <kbd>SPACE</kbd> handbrake &nbsp;·&nbsp; <kbd>SHIFT</kbd> sprint / boost (Redline) &nbsp;·&nbsp;
     <kbd>R</kbd> radio &nbsp;·&nbsp; <kbd>ESC</kbd> release mouse<br>
-    <span style="opacity:.7">Run delivery jobs for cash. Cause chaos, draw Heat, lose the cops. It's Port Soleil.</span>
+    <span style="opacity:.7">Seven districts across an island county. Take a <b>boat</b> between islands,
+    watch the <b>tide</b> flood the low ground, and ride out the <b>hurricane</b>. It's Port Soleil.</span>
   </div>
 </div>
 
@@ -415,23 +420,94 @@ function boot(){
   }
 
   /* ---------- the tide (dynamic world system, docs/02) ---------- */
-  const tide={ phase:0.15, level:0, rising:true, label:'LOW' };
+  const tide={ phase:0.15, level:0, eff:0, rising:true, label:'LOW' };
   function updateTide(dt){
     const prev=tide.level;
     tide.phase += dt*0.012;                       // a slow tidal cycle
     tide.level = (Math.sin(tide.phase*Math.PI*2)+1)/2;   // 0..1
     tide.rising = tide.level>=prev;
-    tide.label = tide.level>0.78?'KING TIDE':tide.level>0.55?'HIGH':
-                 tide.level<0.22?'LOW':(tide.rising?'RISING':'FALLING');
+    // a hurricane drives a storm surge on top of the astronomical tide
+    const surge = storm.intensity*0.4;
+    tide.eff = Math.min(1, tide.level + surge);
+    tide.label = surge>0.15?'STORM SURGE':tide.eff>0.78?'KING TIDE':tide.eff>0.55?'HIGH':
+                 tide.eff<0.22?'LOW':(tide.rising?'RISING':'FALLING');
     // raise the flood sheets over low districts as the water comes in
     for(const f of floodSheets){
-      const reach=f.first?tide.level:Math.max(0,tide.level-0.45)*1.8; // 'mid' floods only at high tide
-      f.mesh.material.opacity = Math.min(0.72, reach*0.8);
-      f.mesh.position.y = 0.06 + reach*0.9;
+      const reach=f.first?tide.eff:Math.max(0,tide.eff-0.45)*1.8; // 'mid' floods only at high tide
+      f.mesh.material.opacity = Math.min(0.78, reach*0.85);
+      f.mesh.position.y = 0.06 + reach*0.95;
     }
-    sea.position.y = -0.6 + tide.level*0.5;
+    sea.position.y = -0.6 + tide.eff*0.5;
     if(world.lighthouse){ const t=performance.now()*0.0009;   // sweeping beam
       world.lighthouse.lamp.intensity = 1.4 + Math.abs(Math.sin(t))*1.8; }
+  }
+
+  /* ---------- the storm / hurricane season (docs/02 climax) ---------- */
+  // A named hurricane builds, peaks (the eye), and passes on a long cycle:
+  // skies turn, rain comes, the surge floods the low ground, NPCs evacuate,
+  // police thin out. It's the season's set-piece.
+  const HURRICANES=['ODALYS','BRISA','CORMORANT','DELPHINE','EUGENIO','FRACAS'];
+  const storm={ t:120, intensity:0, name:'', active:false, lightning:0, count:0 };
+  const STORM_CYCLE=210, STORM_DUR=80;       // seconds
+  const baseFog=0.0017, baseSky=new THREE.Color(0x070b16), stormSky=new THREE.Color(0x161a22);
+  const baseAmbient=0.7, baseHemi=0.6, baseMoon=0.5;
+  const ambient=scene.children.find(o=>o.isAmbientLight) || null;
+
+  // rain: a recycling cloud of points that follows the camera
+  let rain=null, rainPos=null;
+  function buildRain(){
+    const N=1400; rainPos=new Float32Array(N*3);
+    for(let i=0;i<N;i++){ rainPos[i*3]=rr(-90,90); rainPos[i*3+1]=rr(0,120); rainPos[i*3+2]=rr(-90,90); }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(rainPos,3));
+    rain=new THREE.Points(geo, new THREE.PointsMaterial({ color:0x9fc6e8, size:0.5,
+      transparent:true, opacity:0, depthWrite:false }));
+    rain.frustumCulled=false; scene.add(rain);
+  }
+  buildRain();
+  function updateStorm(dt){
+    storm.t += dt;
+    const local = storm.t % STORM_CYCLE;
+    const was = storm.active;
+    if(local < STORM_DUR){
+      storm.active=true;
+      storm.intensity = Math.sin((local/STORM_DUR)*Math.PI);   // 0 → 1 (eye) → 0
+      if(!was){ storm.name=HURRICANES[storm.count++ % HURRICANES.length];
+        toast('⛈ HURRICANE '+storm.name+' INBOUND — get to high ground'); }
+    } else { storm.active=false; storm.intensity=0; }
+    const I=storm.intensity;
+
+    // sky, fog, light dim with the storm
+    scene.background.copy(baseSky).lerp(stormSky, I);
+    scene.fog.color.copy(scene.background);
+    scene.fog.density = baseFog + I*0.0042;
+    if(ambient) ambient.intensity = baseAmbient*(1-0.35*I);
+    hemi.intensity = baseHemi*(1-0.4*I);
+    moon.intensity = baseMoon*(1-0.5*I);
+
+    // lightning — random flashes near the eye
+    if(I>0.25 && Math.random() < I*0.012) storm.lightning=1;
+    if(storm.lightning>0){
+      storm.lightning=Math.max(0, storm.lightning-dt*3.5);
+      if(ambient) ambient.intensity += storm.lightning*1.6;
+      scene.background.lerp(new THREE.Color(0xb9c6d8), storm.lightning*0.6);
+    }
+
+    // rain follows the camera; opacity tracks intensity; points fall + recycle
+    if(rain){
+      rain.material.opacity = I*0.9;
+      rain.visible = I>0.02;
+      if(rain.visible){
+        rain.position.set(camera.position.x, 0, camera.position.z);
+        const fall=(40+I*60)*dt;
+        for(let i=0;i<rainPos.length;i+=3){
+          rainPos[i+1]-=fall; if(rainPos[i+1]<0){ rainPos[i+1]=120; rainPos[i]=rr(-90,90); rainPos[i+2]=rr(-90,90); }
+        }
+        rain.geometry.attributes.position.needsUpdate=true;
+      }
+    }
+    // crowds evacuate as it worsens (docs/02: NPCs board up and leave)
+    for(let i=0;i<peds.length;i++){ if(peds[i].alive) peds[i].mesh.visible = i > peds.length*I*0.8; }
   }
 
   /* ---------- car factory ---------- */
@@ -461,6 +537,27 @@ function boot(){
       const bar=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.22,0.5),barMat);
       bar.position.set(0,1.55,-0.2); g.add(bar); g.userData.lightbar=bar;
     }
+    g.userData.color=color;
+    return g;
+  }
+
+  /* ---------- boat factory (water vehicles) ---------- */
+  function makeBoat(color){
+    const g=new THREE.Group();
+    const hullMat=new THREE.MeshStandardMaterial({color, roughness:0.4, metalness:0.5});
+    const hull=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.8,6.4), hullMat);
+    hull.position.y=0.5; g.add(hull);
+    // pointed bow
+    const bow=new THREE.Mesh(new THREE.ConeGeometry(1.2,2.2,4),
+      new THREE.MeshStandardMaterial({color, roughness:0.4, metalness:0.5}));
+    bow.rotation.x=-Math.PI/2; bow.rotation.y=Math.PI/4; bow.position.set(0,0.5,3.6); g.add(bow);
+    const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.7,1.8),
+      new THREE.MeshStandardMaterial({color:0x0a0c14, roughness:0.2, metalness:0.3,
+        emissive:0x05d9e8, emissiveIntensity:0.2}));
+    cabin.position.set(0,1.1,-0.6); g.add(cabin);
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.2,0.1),
+      new THREE.MeshStandardMaterial({color:0xfff3c0,emissive:0xfff3c0,emissiveIntensity:1.4}));
+    lamp.position.set(0,1.2,2.6); g.add(lamp);
     g.userData.color=color;
     return g;
   }
@@ -522,6 +619,27 @@ function boot(){
   const SPAWN=districtById('cut');
   const startCar = spawnCar(SPAWN.cx+6, SPAWN.cz+8, Math.PI, {color:0xff2a6d});
   player.pos.set(SPAWN.cx, 0, SPAWN.cz);
+
+  // boats — water vehicles moored at the islands' edges (cross the sea, use the tide)
+  const boatColors=[0xf2f4f8,0x05d9e8,0xff7b00,0xf9f871,0xb967ff];
+  function spawnBoat(x,z,heading){
+    const g=makeBoat(pick(boatColors)); g.position.set(x,0,z); g.rotation.y=heading; scene.add(g);
+    const c={g,heading,speed:0,parked:true,police:false,hp:100,traffic:false,boat:true};
+    cars.push(c); return c;
+  }
+  function addDock(x,z,ang){   // a little plank pier jutting from the shore
+    const dock=new THREE.Mesh(new THREE.BoxGeometry(4,0.3,16),
+      new THREE.MeshStandardMaterial({color:0x2a2118, roughness:0.9}));
+    dock.position.set(x,0.15,z); dock.rotation.y=ang; scene.add(dock);
+  }
+  // hand-placed marinas in open water beside the coastal districts
+  const MARINAS=[ [120,-300,0], [-185,90,0], [120,70,0], [155,40,Math.PI/2],
+                  [-150,150,0], [130,235,0] ];
+  for(const [mx,mz,a] of MARINAS){
+    if(isLand(mx,mz)) continue;                 // only moor in real water
+    addDock(mx, mz - 9, a);
+    spawnBoat(mx, mz, a);
+  }
 
   // pedestrians
   const peds=[]; // {mesh, dir, speed, alive}
@@ -600,6 +718,8 @@ function boot(){
     const want=Math.floor(player.heat);
     const active=cars.filter(c=>c.police && c.hp>0).length;
     policeTimer-=dt;
+    // police thin out as the hurricane worsens (docs/02)
+    if(storm.intensity>0.55 && Math.random()<storm.intensity*0.6) { policeTimer=1.5; return; }
     if(want>=1 && active<want+1 && policeTimer<=0){
       policeTimer=2.2;
       // spawn from a nearby road on land (try a ring of angles/distances)
@@ -702,13 +822,25 @@ function boot(){
         const d=Math.hypot(c.g.position.x-player.pos.x, c.g.position.z-player.pos.z);
         if(d<bd){bd=d;best=c;} }
       if(best){ player.mode='drive'; player.car=best; best.parked=false; best.traffic=false;
-        avatar.visible=false; $('mode').textContent='DRIVING'; toast('Car stolen — go!'); addHeat(0.25); }
-      else toast('No car nearby (find one, press F)');
+        avatar.visible=false; $('mode').textContent=best.boat?'BOATING':'DRIVING';
+        toast(best.boat?'Boat commandeered — hit the water':'Car stolen — go!'); addHeat(best.boat?0.1:0.25); }
+      else toast('No car or boat nearby (press F)');
     } else {
       const c=player.car; player.mode='foot';
-      player.pos.set(c.g.position.x+Math.cos(c.heading)*2.6, 0, c.g.position.z-Math.sin(c.heading)*2.6);
+      // step out onto solid ground (important when leaving a boat)
+      let ox=c.g.position.x+Math.cos(c.heading)*2.6, oz=c.g.position.z-Math.sin(c.heading)*2.6;
+      if(!isLand(ox,oz)){ const L=nearestLand(c.g.position.x,c.g.position.z); ox=L.x; oz=L.z; }
+      player.pos.set(ox, 0, oz);
       c.speed*=0.3; avatar.visible=true; player.car=null; $('mode').textContent='ON FOOT';
     }
+  }
+  // find the closest drivable land to a point (for disembarking a boat)
+  function nearestLand(x,z){
+    if(isLand(x,z)) return {x,z};
+    for(let r=6;r<=140;r+=6){ for(let a=0;a<12;a++){ const ang=a/12*Math.PI*2;
+      const nx=x+Math.cos(ang)*r, nz=z+Math.sin(ang)*r;
+      if(isLand(nx,nz)&&!insideBuilding(nx,nz)) return {x:nx,z:nz}; } }
+    return {x:SPAWN.cx,z:SPAWN.cz};
   }
 
   /* ---------- simple synth radio ---------- */
@@ -821,23 +953,30 @@ function boot(){
     camera.lookAt(look);
   }
 
-  /* ---------- update: driving ---------- */
+  /* ---------- update: driving / boating ---------- */
   function updateDrive(dt){
     const c=player.car; if(!c){ player.mode='foot'; return; }
     const boost=(keys.ShiftLeft||keys.ShiftRight)?1.6:1.0; player.sprint=boost>1;
-    const maxSpeed=34*boost;
-    if(keys.KeyW) c.speed+=26*dt; else if(keys.KeyS) c.speed-=30*dt; else c.speed*=(1-1.1*dt);
-    if(keys.Space) c.speed*=(1-4*dt);
+    const maxSpeed=(c.boat?26:34)*boost;
+    const accel=c.boat?18:26, drag=c.boat?0.6:1.1;
+    if(keys.KeyW) c.speed+=accel*dt; else if(keys.KeyS) c.speed-=accel*1.15*dt; else c.speed*=(1-drag*dt);
+    if(keys.Space) c.speed*=(1-(c.boat?1.5:4)*dt);
     c.speed=Math.max(-12, Math.min(maxSpeed, c.speed));
     const steer=(keys.KeyA?1:0)-(keys.KeyD?1:0);
-    c.heading += steer * dt * 1.7 * Math.max(0.15, Math.min(1, Math.abs(c.speed)/12)) * Math.sign(c.speed||1);
+    const turnRate=c.boat?1.1:1.7;
+    c.heading += steer * dt * turnRate * Math.max(0.15, Math.min(1, Math.abs(c.speed)/12)) * Math.sign(c.speed||1);
     const nx=c.g.position.x + Math.sin(c.heading)*c.speed*dt;
     const nz=c.g.position.z + Math.cos(c.heading)*c.speed*dt;
     const np=new THREE.Vector3(nx,0,nz);
     if(resolveBuildings(np,1.4)) c.speed*=0.3;
-    if(!isLand(np.x,np.z)){ np.x=c.g.position.x; np.z=c.g.position.z; c.speed*=0.2; } // can't drive on water
+    // a boat is blocked by LAND; a car is blocked by WATER
+    const blocked = c.boat ? isLand(np.x,np.z) : !isLand(np.x,np.z);
+    if(blocked){ np.x=c.g.position.x; np.z=c.g.position.z; c.speed*=0.2; }
     clampWorld(np);
     c.g.position.x=np.x; c.g.position.z=np.z; c.g.rotation.y=c.heading;
+    // boats ride the tide and bob in the chop
+    if(c.boat){ c.g.position.y = tide.level*0.5 - 0.25 + Math.sin(performance.now()*0.004)*0.12;
+      c.g.rotation.z = Math.sin(performance.now()*0.003)*0.05; }
     player.pos.set(np.x,0,np.z); player.yaw=c.heading;
     // run over peds
     for(const p of peds){ if(!p.alive)continue;
@@ -920,9 +1059,9 @@ function boot(){
     // districts as colored land blocks
     for(const D of DISTRICTS){ mapCtx.fillStyle=hex(D.ground);
       mapCtx.fillRect(wx(D.minx),wy(D.minz),(D.maxx-D.minx)*scale,(D.maxz-D.minz)*scale);
-      // flood tint on low districts at high tide
-      if((D.flood==='first'&&tide.level>0.4)||(D.flood==='mid'&&tide.level>0.7)){
-        mapCtx.fillStyle='rgba(6,52,80,'+(0.25+tide.level*0.35)+')';
+      // flood tint on low districts at high (effective) tide
+      if((D.flood==='first'&&tide.eff>0.4)||(D.flood==='mid'&&tide.eff>0.7)){
+        mapCtx.fillStyle='rgba(6,52,80,'+(0.25+tide.eff*0.35)+')';
         mapCtx.fillRect(wx(D.minx),wy(D.minz),(D.maxx-D.minx)*scale,(D.maxz-D.minz)*scale); }
     }
     // landmarks
@@ -932,9 +1071,10 @@ function boot(){
     // mission marker
     if(marker.visible){ mapCtx.fillStyle='#f9f871'; mapCtx.beginPath();
       mapCtx.arc(wx(marker.position.x),wy(marker.position.z),3.5,0,7); mapCtx.fill(); }
-    // police
-    mapCtx.fillStyle='#ff2a6d';
-    for(const c of cars){ if(!c.police||c.hp<=0)continue; mapCtx.fillRect(wx(c.g.position.x)-1.5,wy(c.g.position.z)-1.5,3,3); }
+    // boats (white) + police (pink)
+    for(const c of cars){ if(c.hp<=0)continue;
+      if(c.boat){ mapCtx.fillStyle='rgba(230,247,255,.8)'; mapCtx.fillRect(wx(c.g.position.x)-1.5,wy(c.g.position.z)-1.5,3,3); }
+      else if(c.police){ mapCtx.fillStyle='#ff2a6d'; mapCtx.fillRect(wx(c.g.position.x)-1.5,wy(c.g.position.z)-1.5,3,3); } }
     // player (arrow facing yaw)
     const pxp=wx(player.pos.x), pyp=wy(player.pos.z);
     mapCtx.save(); mapCtx.translate(pxp,pyp); mapCtx.rotate(player.yaw);
@@ -961,8 +1101,13 @@ function boot(){
     $('place').textContent = D ? D.name : 'ON THE WATER';
     $('placetag').textContent = D ? '“'+D.tag+'”' : '— causeway —';
     $('tide').textContent = tide.label;
-    $('tidebar').style.width = Math.round(tide.level*100)+'%';
-    $('tide').style.color = tide.level>0.55 ? '#ff2a6d' : '#05d9e8';
+    $('tidebar').style.width = Math.round(tide.eff*100)+'%';
+    $('tide').style.color = (storm.intensity>0.1 || tide.eff>0.55) ? '#ff2a6d' : '#05d9e8';
+    // storm banner
+    const sb=$('storm');
+    if(storm.active){ sb.style.display='block';
+      sb.textContent='⛈ HURRICANE '+storm.name+' · '+Math.round(storm.intensity*100)+'%'; }
+    else sb.style.display='none';
   }
 
   /* ---------- main loop ---------- */
@@ -972,7 +1117,7 @@ function boot(){
     let dt=(now-last)/1000; last=now; dt=Math.min(dt,0.05);
     if(started){
       if(player.mode==='foot') updateFoot(dt); else updateDrive(dt);
-      updateTide(dt);
+      updateStorm(dt); updateTide(dt);
       updatePeds(dt);
       maybeSpawnPolice(dt); updatePolice(dt);
       updateTracers(dt); updatePickups(dt);
