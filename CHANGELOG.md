@@ -2,6 +2,19 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## [Prototype Branch] Round 6 — `viz` Tool + First Taste Pass
+- Added **`tools/viz/`**, a reusable visual-check harness (Xvfb + software GL,
+  contact sheet + MP4/GIF clip). Wired the Godot slice to honour `$VIZ_OUT`.
+- **First human taste pass**: retuned toward a heavy street car (1500 kg, less
+  grip, lazier steering); re-ran self-check, landed clean three-lap passes.
+
+## [Prototype Branch] Round 5 — From Paper to a Playable, Self-Observing Slice
+- Built a **real-engine Godot 4.3 prototype** of the driving verb under
+  `prototype/neon-delta-slice/` with `VehicleBody3D` physics.
+- Added a **self-observation rig**: bot drives headlessly; `selfcheck.sh` asserts
+  stability, lap completion, on-track, sane g-loads — exits non-zero on failure.
+- Added doc **24a — AI-Assisted Development & The Self-Observation Loop**.
+
 ## Round 16 — IT'S PLAYABLE: 3D prototype
 - Built an actual, runnable **3D open-world game** in `game/` using Three.js
   (WebGL), self-contained in a single `index.html`, no build step:
