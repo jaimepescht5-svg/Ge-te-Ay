@@ -43,6 +43,7 @@ const CAUSEWAYS := [
 ]
 
 const TIDE_PERIOD := 120.0   # seconds for a full low->high->low tide cycle
+const DAY_SECONDS := 240.0   # seconds for a full sun->moon->sun day/night cycle
 
 # Half-width of the building-free road corridor carved along the waypoint tour,
 # so the whole world stays drivable however the districts pack in. Generous so a
@@ -127,6 +128,16 @@ var tide_time := 0.0
 var tide_level := 0.0
 var flood_entries: Array = []   # {mesh: MeshInstance3D, flood: String}
 
+# sky / day-night
+var env: Environment
+var sun: DirectionalLight3D
+var moon: DirectionalLight3D
+var sky_mat: ProceduralSkyMaterial
+var day_time := 0.0          # phase within DAY_SECONDS
+var sun_elev := 1.0          # -1..1, 1 = noon
+var streetlights: Array = [] # OmniLight3D nodes that auto-toggle at night
+var mat_cache: Dictionary = {}   # color-int -> StandardMaterial3D (shared mats)
+
 # heat / pursuers
 var heat := 0.0
 var heat_peak := 0.0
@@ -187,25 +198,174 @@ func _ready() -> void:
 func _hex(h: int) -> Color:
 	return Color(((h >> 16) & 0xff) / 255.0, ((h >> 8) & 0xff) / 255.0, (h & 0xff) / 255.0)
 
+# Shared emissive/plain material cache keyed by color int + emission flag, to keep
+# the material count down across the many procedural meshes we spawn.
+func _mat(h: int, emit: bool = false, emit_energy: float = 1.0) -> StandardMaterial3D:
+	var key := h * 10 + (1 if emit else 0)
+	if mat_cache.has(key):
+		return mat_cache[key]
+	var m := StandardMaterial3D.new()
+	var c := _hex(h)
+	m.albedo_color = c
+	if emit:
+		m.emission_enabled = true
+		m.emission = c
+		m.emission_energy_multiplier = emit_energy
+	mat_cache[key] = m
+	return m
+
 # ----------------------------------------------------------------- world build
 func _build_environment() -> void:
-	var env := WorldEnvironment.new()
+	var headless := DisplayServer.get_name() == "headless"
+	var we := WorldEnvironment.new()
 	var e := Environment.new()
-	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.03, 0.04, 0.07)
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env = e
+
+	# --- procedural sky (synthwave golden-hour-into-violet) ---
+	sky_mat = ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = _hex(0x1a1140)
+	sky_mat.sky_horizon_color = _hex(0xff7b00)
+	sky_mat.ground_horizon_color = _hex(0xb967ff)
+	sky_mat.ground_bottom_color = _hex(0x0d0d14)
+	sky_mat.sky_energy_multiplier = 1.0
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	e.background_mode = Environment.BG_SKY
+	e.sky = sky
+
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	e.ambient_light_color = Color(0.30, 0.34, 0.46)
 	e.ambient_light_energy = 0.65
+	e.ambient_light_sky_contribution = 0.4
+
 	e.fog_enabled = true
-	e.fog_light_color = Color(0.05, 0.07, 0.12)
-	e.fog_density = 0.0012
-	env.environment = e
-	add_child(env)
-	var sun := DirectionalLight3D.new()
+	e.fog_light_color = Color(0.20, 0.14, 0.28)
+	e.fog_density = 0.0016
+
+	# tone mapping
+	e.tonemap_mode = Environment.TONE_MAPPER_ACES
+	e.tonemap_exposure = 1.0
+
+	# glow / bloom
+	e.glow_enabled = true
+	e.glow_intensity = 0.4
+	e.glow_bloom = 0.1
+	e.glow_strength = 1.0
+
+	# SSAO (cheap-ish, render-only)
+	if not headless:
+		e.ssao_enabled = true
+		e.ssao_radius = 2.0
+		e.ssao_intensity = 1.5
+		# SDFGI crashes headless; render-only and only on a compatible renderer
+		e.sdfgi_enabled = true
+		e.sdfgi_cascades = 4
+
+	we.environment = e
+	add_child(we)
+
+	# --- sun ---
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-58, -42, 0)
-	sun.light_energy = 1.1
-	sun.light_color = Color(1.0, 0.93, 0.82)
+	sun.light_energy = 1.2
+	sun.light_color = Color(1.0, 0.88, 0.70)
+	if not headless:
+		sun.shadow_enabled = true
 	add_child(sun)
+
+	# --- moon (dimmer, bluish, roughly opposite) ---
+	moon = DirectionalLight3D.new()
+	moon.rotation_degrees = Vector3(-122, -42, 0)
+	moon.light_energy = 0.0
+	moon.light_color = Color(0.55, 0.66, 1.0)
+	add_child(moon)
+
+	_build_streetlights()
+	_update_day_night(0.0)
+
+# Warm orange OmniLights at district corners and along causeways. They glow at
+# night and switch off in daylight (driven by _update_day_night).
+func _build_streetlights() -> void:
+	# district corners
+	for d in DISTRICTS:
+		var hw: float = d["w"] * 0.5 - 12.0
+		var hd: float = d["d"] * 0.5 - 12.0
+		var cx: float = d["cx"]
+		var cz: float = d["cz"]
+		for sx in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				_add_streetlight(Vector3(cx + sx * hw, 7.0, cz + sz * hd))
+	# causeway edges (a couple per causeway)
+	for c in CAUSEWAYS:
+		var a := Vector2(c["ax"], c["az"])
+		var b := Vector2(c["bx"], c["bz"])
+		var hwc: float = c["hw"]
+		var dir := (b - a).normalized()
+		var perp := Vector2(-dir.y, dir.x)
+		for t in [0.25, 0.75]:
+			var m := a.lerp(b, t)
+			_add_streetlight(Vector3(m.x + perp.x * hwc, 7.0, m.y + perp.y * hwc))
+			_add_streetlight(Vector3(m.x - perp.x * hwc, 7.0, m.y - perp.y * hwc))
+
+func _add_streetlight(pos: Vector3) -> void:
+	# pole
+	var pole := MeshInstance3D.new()
+	var pm := CylinderMesh.new()
+	pm.top_radius = 0.12
+	pm.bottom_radius = 0.18
+	pm.height = 7.0
+	pole.mesh = pm
+	pole.material_override = _mat(0x2a2a30)
+	pole.position = pos - Vector3(0, 3.5, 0)
+	add_child(pole)
+	# lamp
+	var light := OmniLight3D.new()
+	light.light_color = _hex(0xf97316)
+	light.light_energy = 4.0
+	light.omni_range = 22.0
+	light.position = pos
+	light.visible = false
+	add_child(light)
+	streetlights.append(light)
+
+# Advance the day/night cycle. In selfcheck we freeze at golden hour for a nice
+# clip; otherwise the sun & moon sweep across DAY_SECONDS.
+func _update_day_night(delta: float) -> void:
+	if mode == "selfcheck":
+		day_time = DAY_SECONDS * 0.12   # frozen golden hour (low warm sun)
+	else:
+		day_time = fmod(day_time + delta, DAY_SECONDS)
+	var phase := day_time / DAY_SECONDS         # 0..1
+	# sun elevation: sin curve, +1 noon, -1 midnight, phase 0 = dawn
+	sun_elev = sin((phase - 0.25) * TAU)
+	# rotate the sun: -90deg at dawn rising to overhead at noon
+	var sun_pitch := -sun_elev * 80.0
+	sun.rotation_degrees = Vector3(sun_pitch, -42.0, 0.0)
+	moon.rotation_degrees = Vector3(sun_pitch + 180.0, -42.0, 0.0)
+
+	var day := clampf(sun_elev, 0.0, 1.0)        # 0 night, 1 full day
+	var night := 1.0 - day
+	sun.light_energy = lerpf(0.0, 1.3, day)
+	moon.light_energy = lerpf(0.0, 0.35, night)
+
+	# warmer at low sun (golden hour), whiter at noon
+	var golden := clampf(1.0 - absf(sun_elev - 0.2) * 2.5, 0.0, 1.0)
+	sun.light_color = Color(1.0, 0.93, 0.78).lerp(Color(1.0, 0.62, 0.35), golden)
+
+	# ambient + fog tie to elevation
+	if env != null:
+		env.ambient_light_energy = lerpf(0.18, 0.85, day)
+		env.fog_density = lerpf(0.0042, 0.0012, day)
+		env.fog_light_color = _hex(0x231030).lerp(_hex(0x4a3a30), day)
+		if sky_mat != null:
+			sky_mat.sky_energy_multiplier = lerpf(0.25, 1.1, day)
+			sky_mat.sky_horizon_color = _hex(0xff2a6d).lerp(_hex(0xff9b3a), day)
+			sky_mat.sky_top_color = _hex(0x0a0820).lerp(_hex(0x2a3aa0), day)
+
+	# streetlights on at night
+	var lights_on := sun_elev < 0.15
+	for l in streetlights:
+		l.visible = lights_on
 
 func _build_sea() -> void:
 	# a big dark plane under everything — the delta water the city floods into.
@@ -583,6 +743,7 @@ func _district_at(p: Vector2) -> String:
 func _physics_process(delta: float) -> void:
 	sim_time += delta
 	_update_tide(delta)
+	_update_day_night(delta)
 	if in_car:
 		_car_physics(delta)
 	else:
