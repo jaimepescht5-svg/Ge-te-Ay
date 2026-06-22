@@ -72,10 +72,25 @@ the full firewall.
 | [21 — Phone & Meta UI](docs/21-the-phone-and-meta-ui.md) | The in-fiction phone hub and HUD |
 | [22 — Sample Mission Script](docs/22-sample-mission-script.md) | "Wash Day" written out to show the voice |
 | [23 — Accessibility](docs/23-accessibility.md) | The full accessibility spec |
+| [24 — AI Development & Self-Observation](docs/24-ai-development-and-self-observation.md) | How this gets built by an AI — and the hard wall of taste |
+
+---
+
+## Playable prototype
+
+The bible is no longer only on paper. [`prototype/neon-delta-slice/`](prototype/neon-delta-slice/)
+is a **real-engine** (Godot 4.3) gray-box slice of the signature verb —
+**driving** — with a self-observation rig: a bot drives it headlessly, the
+engine captures frames + telemetry, and a self-check asserts the slice is
+stable, lap-completable, and on-track (exiting non-zero if not). It proves the
+verb in a gray box *and* the development method in [doc 24](docs/24-ai-development-and-self-observation.md).
+What it deliberately does **not** decide is whether the driving is *fun* —
+that's the human's call.
 
 ---
 
 ## Status
 
-🟢 **Active design.** This bible is being iterated and expanded continuously.
-See [`CHANGELOG.md`](CHANGELOG.md) for the build history.
+🟢 **Active design + first playable.** This bible is iterated continuously and
+now has a running prototype. See [`CHANGELOG.md`](CHANGELOG.md) for the build
+history.

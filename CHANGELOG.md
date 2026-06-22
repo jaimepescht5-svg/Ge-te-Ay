@@ -2,6 +2,25 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 5 — From Paper to a Playable, Self-Observing Slice
+- The bible left the page: built a **real-engine playable prototype** of the
+  signature verb (driving) under `prototype/neon-delta-slice/`, running on
+  **Godot 4.3** with genuine `VehicleBody3D` physics, collisions, and rendering.
+- Added a **self-observation rig**: a reference bot ("proxy player") drives the
+  slice headlessly (Xvfb + software GL — no GPU needed); the engine captures
+  chase-cam frames and telemetry; `selfcheck.sh` asserts invariants
+  (stability, lap completion, on-track, sane g-loads) and exits non-zero on
+  failure, so it works as a CI gate. `tools/plot_run.py` renders a top-down
+  diagnostic of each run.
+- The loop genuinely turned: it autonomously caught and drove fixes for a
+  flipped forward-vector, a 15×-too-weak engine, an over-optimistic grip model
+  (spotted in a screenshot), and a physics instability — landing on a clean
+  three-lap pass at ~90 km/h average.
+- Added doc **24 — AI-Assisted Development & The Self-Observation Loop**: the
+  honest method and its hard wall (correctness/playability close into an
+  autonomous loop; *delight* stays a human judgement; Goodhart is the trap).
+- Updated README doc map and status.
+
 ## Round 4 — Craft & Production
 - Added four craft/production docs:
   - 20 Tech & Production — technical pillars, engine stance, scope discipline,
