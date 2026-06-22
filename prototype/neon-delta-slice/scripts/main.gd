@@ -236,6 +236,7 @@ func _ready() -> void:
 	_build_peds()
 	_build_minimap()
 	_build_ammo_crates()
+	_build_atmosphere()
 
 	bot = WaypointBot.new(WP)
 	in_car = true
@@ -1335,6 +1336,73 @@ func _spawn_explosion(pos: Vector3) -> void:
 		tw.tween_property(shard, "position", shard.position + dir * 8.0, 1.0)
 		tw.tween_property(shard, "scale", Vector3.ZERO, 1.0)
 		tw.chain().tween_callback(shard.queue_free)
+
+# ----------------------------------------------------------------- atmosphere
+# Neon signs over downtown, a lighthouse beacon in Cayo Brava, cypress silhouettes
+# in Bayou Verde. Pure decoration — render-only, skipped in headless CI.
+func _build_atmosphere() -> void:
+	if headless:
+		return
+	# downtown neon signs: glowing emissive panels + a matching point light
+	var neon_cols := [0xff2a6d, 0x05d9e8, 0xb967ff, 0xf9f871, 0xff7b00]
+	for i in range(8):
+		var x := rng.randf_range(-90.0, 90.0)
+		var z := -40.0 + rng.randf_range(-90.0, 90.0)
+		var c: int = neon_cols[i % neon_cols.size()]
+		var sign := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(rng.randf_range(3.0, 7.0), rng.randf_range(2.0, 5.0), 0.3)
+		sign.mesh = bm
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = _hex(c)
+		mat.emission_enabled = true
+		mat.emission = _hex(c)
+		mat.emission_energy_multiplier = 3.0
+		sign.material_override = mat
+		sign.position = Vector3(x, rng.randf_range(12.0, 28.0), z)
+		sign.rotation.y = rng.randf_range(0.0, TAU)
+		add_child(sign)
+		var glow := OmniLight3D.new()
+		glow.light_color = _hex(c)
+		glow.light_energy = 2.5
+		glow.omni_range = 16.0
+		glow.position = sign.position
+		add_child(glow)
+
+	# lighthouse beacon in Cayo Brava
+	var beacon := OmniLight3D.new()
+	beacon.light_color = _hex(0xf9f871)
+	beacon.light_energy = 6.0
+	beacon.omni_range = 60.0
+	beacon.position = Vector3(30, 30, -370)
+	add_child(beacon)
+	var tower := MeshInstance3D.new()
+	var tm := CylinderMesh.new()
+	tm.top_radius = 1.5
+	tm.bottom_radius = 2.5
+	tm.height = 30.0
+	tower.mesh = tm
+	var twmat := StandardMaterial3D.new()
+	twmat.albedo_color = Color(0.9, 0.9, 0.92)
+	tower.material_override = twmat
+	tower.position = Vector3(30, 15, -370)
+	add_child(tower)
+
+	# bayou cypress silhouettes (green cones)
+	for i in range(20):
+		var cone := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.0
+		cm.bottom_radius = rng.randf_range(1.5, 3.0)
+		cm.height = rng.randf_range(8.0, 16.0)
+		cone.mesh = cm
+		var cmat := StandardMaterial3D.new()
+		cmat.albedo_color = _hex(0x183a1a)
+		cone.material_override = cmat
+		var cx := -250.0 + rng.randf_range(-120.0, 120.0)
+		var cz := 360.0 + rng.randf_range(-110.0, 110.0)
+		cone.position = Vector3(cx, cm.height * 0.5, cz)
+		add_child(cone)
 
 # ----------------------------------------------------------------- ammo crates
 # 20 yellow crates scattered across districts. Walk within 1.5m to refill the
