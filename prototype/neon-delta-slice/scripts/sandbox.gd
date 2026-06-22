@@ -45,6 +45,17 @@ var cam: Camera3D
 var hud: Label
 var bot
 
+# ---- shooting verb ----
+const GUN_RANGE := 90.0
+var aim_dir := Vector3(0, 0, 1)     # current aim (world unit vector)
+var target_bodies: Array = []       # Array[StaticBody3D]
+var target_meshes: Array = []       # Array[MeshInstance3D]
+var target_alive: Array = []        # Array[bool]
+var target_pos: Array = []          # Array[Vector3]
+var shots_fired := 0
+var shots_hit := 0
+var targets_destroyed := 0
+
 # telemetry / state
 var sim_time := 0.0
 var next_capture := 0.0
@@ -82,6 +93,7 @@ func _ready() -> void:
 	_build_ground()
 	_build_walls()
 	_build_obstacles()
+	_build_targets()
 	_build_player()
 	_build_camera()
 	_build_hud()
@@ -93,7 +105,7 @@ func _ready() -> void:
 		Vector3(-30, 0, 30), Vector3(-30, 0, -30),
 		Vector3(0, 0, 0),
 	]
-	bot = FootBot.new(waypoints)
+	bot = FootBot.new(waypoints, target_pos)
 
 	start_pos = player.global_position
 	prev_pos = start_pos
@@ -168,6 +180,42 @@ func _build_obstacles() -> void:
 	]:
 		_wall(spec[0], spec[1])
 
+func _build_targets() -> void:
+	# shoot-the-dummy targets with clear line-of-sight from the arena centre
+	# (where the walk patrol ends and the shooting phase begins).
+	var positions := [
+		Vector3(0, 1, 24), Vector3(22, 1, 12), Vector3(24, 1, -8),
+		Vector3(-22, 1, -10), Vector3(-16, 1, 22),
+	]
+	for p in positions:
+		var body := StaticBody3D.new()
+		var col := CollisionShape3D.new()
+		var cap := CapsuleShape3D.new()
+		cap.radius = 0.6
+		cap.height = 2.0
+		col.shape = cap
+		col.position.y = 1.0
+		body.add_child(col)
+		var mesh := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.6
+		cm.height = 2.0
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.95, 0.85, 0.2)        # NEON DELTA yellow
+		mat.emission_enabled = true
+		mat.emission = Color(0.95, 0.85, 0.2)
+		mat.emission_energy_multiplier = 0.6
+		mesh.mesh = cm
+		mesh.material_override = mat
+		mesh.position.y = 1.0
+		body.add_child(mesh)
+		body.position = p
+		add_child(body)
+		target_bodies.append(body)
+		target_meshes.append(mesh)
+		target_alive.append(true)
+		target_pos.append(p)
+
 func _build_player() -> void:
 	player = CharacterBody3D.new()
 	var col := CollisionShape3D.new()
@@ -216,7 +264,7 @@ func _build_hud() -> void:
 	layer.add_child(hud)
 
 func _setup_input() -> void:
-	for action in ["mv_fwd", "mv_back", "mv_left", "mv_right", "run", "reset"]:
+	for action in ["mv_fwd", "mv_back", "mv_left", "mv_right", "run", "reset", "fire"]:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
 	_bind("mv_fwd", [KEY_W, KEY_UP])
@@ -225,6 +273,9 @@ func _setup_input() -> void:
 	_bind("mv_right", [KEY_D, KEY_RIGHT])
 	_bind("run", [KEY_SHIFT])
 	_bind("reset", [KEY_R])
+	var mb := InputEventMouseButton.new()
+	mb.button_index = MOUSE_BUTTON_LEFT
+	InputMap.action_add_event("fire", mb)
 
 func _bind(action: String, keys: Array) -> void:
 	for k in keys:
@@ -239,12 +290,19 @@ func _physics_process(delta: float) -> void:
 	if mode == "play":
 		c = _player_controls()
 	else:
-		c = bot.control(player.global_position)
+		c = bot.control(player.global_position, delta)
 		if c.get("reached", false):
 			waypoints_reached += 1
 		if c.get("done", false):
 			bot_done = true
 	_apply_movement(c, delta)
+	# aim: bot supplies an explicit aim vector; the player aims along facing.
+	if c.has("aim"):
+		aim_dir = c["aim"]
+	else:
+		aim_dir = Vector3(sin(player_yaw), 0, cos(player_yaw))
+	if c.get("fire", false):
+		_shoot()
 	_update_telemetry(delta)
 
 	if mode == "play" and Input.is_action_just_pressed("reset"):
@@ -264,7 +322,49 @@ func _player_controls() -> Dictionary:
 	mv.x += Input.get_action_strength("mv_right")
 	if mv.length() > 1.0:
 		mv = mv.normalized()
-	return {"move": mv, "run": Input.is_action_pressed("run")}
+	return {"move": mv, "run": Input.is_action_pressed("run"),
+			"fire": Input.is_action_just_pressed("fire")}
+
+func _shoot() -> void:
+	shots_fired += 1
+	var from := player.global_position + Vector3.UP * 1.2 + aim_dir * 0.6
+	var to := from + aim_dir * GUN_RANGE
+	var space := get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.exclude = [player.get_rid()]
+	var hit := space.intersect_ray(q)
+	var hit_point: Vector3 = to
+	if hit.has("position"):
+		hit_point = hit["position"]
+		var collider = hit.get("collider")
+		var idx := target_bodies.find(collider)
+		if idx != -1 and target_alive[idx]:
+			target_alive[idx] = false
+			targets_destroyed += 1
+			shots_hit += 1
+			target_meshes[idx].visible = false
+			target_bodies[idx].set_collision_layer_value(1, false)
+	_spawn_tracer(from, hit_point)
+
+func _spawn_tracer(from: Vector3, to: Vector3) -> void:
+	# visual only; skipped headless. Brief glowing line + muzzle flash.
+	if DisplayServer.get_name() == "headless":
+		return
+	var mid := (from + to) * 0.5
+	var mesh := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.06, 0.06, from.distance_to(to))
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.98, 0.98, 0.5)
+	mat.emission_enabled = true
+	mat.emission = Color(0.98, 0.98, 0.5)
+	mat.emission_energy_multiplier = 3.0
+	mesh.mesh = bm
+	mesh.material_override = mat
+	mesh.position = mid
+	mesh.look_at_from_position(mid, to, Vector3.UP)
+	add_child(mesh)
+	get_tree().create_timer(0.06).timeout.connect(mesh.queue_free)
 
 func _apply_movement(c: Dictionary, delta: float) -> void:
 	var wish: Vector2 = c.get("move", Vector2.ZERO)
@@ -322,8 +422,9 @@ func _update_camera() -> void:
 func _update_hud() -> void:
 	if hud == null:
 		return
-	hud.text = "NEON DELTA — on foot\nmode:%s  speed:%.1f m/s  waypoints:%d/%d" % [
+	hud.text = "NEON DELTA — on foot\nmode:%s  speed:%.1f m/s  waypoints:%d/%d  targets:%d/%d" % [
 		mode, _planar_speed(), waypoints_reached, waypoints.size(),
+		targets_destroyed, target_pos.size(),
 	]
 
 func _capture_frame() -> void:
@@ -349,6 +450,9 @@ func _finish_selfcheck() -> void:
 	checks.append(_check("reached a sane walk speed (>3 m/s)", top_speed > 3.0))
 	checks.append(_check("reached all waypoints", waypoints_reached >= waypoints.size()))
 	checks.append(_check("stayed grounded (no fall-through / launch)", grounded))
+	checks.append(_check("fired the gun", shots_fired > 0))
+	checks.append(_check("destroyed every target", targets_destroyed >= target_pos.size()))
+	checks.append(_check("decent aim (>=45% of shots hit)", shots_fired > 0 and float(shots_hit) / float(shots_fired) >= 0.45))
 	checks.append(_check("captured frames for visual review", capture_index >= 3))
 
 	var passed := true
@@ -365,6 +469,10 @@ func _finish_selfcheck() -> void:
 		"waypoints_total": waypoints.size(),
 		"min_y": min_y,
 		"max_y": max_y,
+		"shots_fired": shots_fired,
+		"shots_hit": shots_hit,
+		"targets_destroyed": targets_destroyed,
+		"targets_total": target_pos.size(),
 		"frames_captured": capture_index,
 		"checks": checks,
 		"passed": passed,
