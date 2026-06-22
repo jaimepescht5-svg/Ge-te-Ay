@@ -126,8 +126,9 @@ the full firewall.
 
 ## Playable prototypes
 
-**3D Web prototype** — [`game/`](game/) — drive, walk, shoot, draw a wanted level,
-lose the cops, and run delivery jobs around a neon city. Built with Three.js (WebGL), no install needed:
+**3D Web prototype** — [`game/`](game/) — drive through Port Soleil's seven
+districts, walk, shoot, draw a wanted level, lose the cops. Built with Three.js
+(WebGL), no install needed:
 
 ```bash
 cd game && python3 -m http.server 8000   # then open http://localhost:8000
@@ -143,5 +144,5 @@ asserts the slice is stable. See [doc 24a](docs/24-ai-development-and-self-obser
 ## Status
 
 🟢 **Active design + first playable.** This bible is iterated continuously and
-now has a running prototype. See [`CHANGELOG.md`](CHANGELOG.md) for the build
-history.
+now has running prototypes (web + engine). See [`CHANGELOG.md`](CHANGELOG.md)
+for the full build history.

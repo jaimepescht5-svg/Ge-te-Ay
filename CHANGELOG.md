@@ -2,6 +2,24 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 17 — BUILDING THE WORLD: a real city, not a grid
+- Replaced the prototype's flat, uniform neon grid with **Port Soleil as a
+  districted archipelago** — the bible's #1 pillar ("The City Is the Star") made
+  real in `game/`:
+  - **Seven distinct districts** laid out per [doc 06](docs/06-map-districts.md)
+    (Downtown Core, The Cut, Marisol Heights, The Reach, Cayo Brava, Bayou Verde,
+    Sabal Springs), each with its own building style, palette, height, and density.
+  - **The sea + causeways**: districts are islands on an open sea, connected by
+    drivable bridges; water is a hard edge for the player, traffic, and police.
+  - **A dynamic tide** ([doc 02](docs/02-setting-world.md)): a rising/falling tide
+    that floods the low-lying districts while the high ground stays dry — the
+    "flood line on the map" rendered as level geometry, with a HUD tide gauge.
+  - **Landmarks for mental mapping**: the Crane Tower, The Ark arcology, the
+    Lighthouse, the Drawbridge, and the Dead Mall.
+  - Deterministic world seed, a north-up county minimap, and a HUD that names the
+    district you're standing in. Player now spawns in **The Cut**, the crew's home
+    turf. All prior systems (driving, shooting, Heat, jobs, radio) preserved.
+
 ## [Prototype Branch] Round 6 — `viz` Tool + First Taste Pass
 - Added **`tools/viz/`**, a reusable visual-check harness (Xvfb + software GL,
   contact sheet + MP4/GIF clip). Wired the Godot slice to honour `$VIZ_OUT`.
