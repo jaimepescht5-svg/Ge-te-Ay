@@ -72,6 +72,12 @@ var pursuers_spawned := 0
 var pursuer_min_dist := INF
 var done_time := -1.0
 
+# ---- play-mode feel (mouse-look + audio); unused by bot/selfcheck ----
+const MOUSE_SENS := 0.0026
+var cam_yaw := 0.0
+var cam_pitch := -0.12
+var gun_player: AudioStreamPlayer
+
 # telemetry / state
 var sim_time := 0.0
 var next_capture := 0.0
@@ -114,7 +120,10 @@ func _ready() -> void:
 	_build_player()
 	_build_camera()
 	_build_hud()
+	_build_audio()
 	_setup_input()
+	if mode == "play":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 	# a square patrol the bot walks (also the human-readable "goal" in play mode)
 	waypoints = [
@@ -370,6 +379,41 @@ func _build_hud() -> void:
 	hud.add_theme_font_size_override("font_size", 22)
 	hud.add_theme_color_override("font_color", Color(0.02, 0.85, 0.91))
 	layer.add_child(hud)
+	# centre crosshair
+	var cross := Label.new()
+	cross.text = "+"
+	cross.add_theme_font_size_override("font_size", 30)
+	cross.add_theme_color_override("font_color", Color(0.05, 0.85, 0.95))
+	cross.set_anchors_preset(Control.PRESET_CENTER)
+	cross.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cross.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	layer.add_child(cross)
+
+func _build_audio() -> void:
+	gun_player = AudioStreamPlayer.new()
+	gun_player.stream = _make_gunshot()
+	gun_player.volume_db = -7.0
+	add_child(gun_player)
+
+func _make_gunshot() -> AudioStreamWAV:
+	# a short noise burst with a fast decay — generated in code (no asset files).
+	var sr := 22050
+	var n := int(sr * 0.14)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in range(n):
+		var t := float(i) / float(n)
+		var env := pow(1.0 - t, 2.2)
+		var s := (randf() * 2.0 - 1.0) * env * 0.7
+		var v := int(clampf(s, -1.0, 1.0) * 32767.0)
+		data[i * 2] = v & 0xff
+		data[i * 2 + 1] = (v >> 8) & 0xff
+	var st := AudioStreamWAV.new()
+	st.format = AudioStreamWAV.FORMAT_16_BITS
+	st.mix_rate = sr
+	st.stereo = false
+	st.data = data
+	return st
 
 func _setup_input() -> void:
 	for action in ["mv_fwd", "mv_back", "mv_left", "mv_right", "run", "reset", "fire"]:
@@ -407,6 +451,8 @@ func _physics_process(delta: float) -> void:
 	# aim: bot supplies an explicit aim vector; the player aims along facing.
 	if c.has("aim"):
 		aim_dir = c["aim"]
+	elif mode == "play":
+		aim_dir = _cam_aim()
 	else:
 		aim_dir = Vector3(sin(player_yaw), 0, cos(player_yaw))
 	if c.get("fire", false):
@@ -427,19 +473,34 @@ func _physics_process(delta: float) -> void:
 		if sim_time >= selfcheck_seconds or observed:
 			_finish_selfcheck()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if mode != "play":
+		return
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		cam_yaw -= event.relative.x * MOUSE_SENS
+		cam_pitch = clampf(cam_pitch - event.relative.y * MOUSE_SENS, -1.2, 0.5)
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+
 func _player_controls() -> Dictionary:
-	var mv := Vector2.ZERO
-	mv.y -= Input.get_action_strength("mv_fwd")
-	mv.y += Input.get_action_strength("mv_back")
-	mv.x -= Input.get_action_strength("mv_left")
-	mv.x += Input.get_action_strength("mv_right")
-	if mv.length() > 1.0:
-		mv = mv.normalized()
-	return {"move": mv, "run": Input.is_action_pressed("run"),
+	# camera-relative movement so WASD follows where you're looking
+	var f := Input.get_action_strength("mv_fwd") - Input.get_action_strength("mv_back")
+	var s := Input.get_action_strength("mv_right") - Input.get_action_strength("mv_left")
+	var forward := Vector2(sin(cam_yaw), cos(cam_yaw))
+	var right := Vector2(cos(cam_yaw), -sin(cam_yaw))
+	var wish := forward * f + right * s
+	if wish.length() > 1.0:
+		wish = wish.normalized()
+	return {"move": wish, "run": Input.is_action_pressed("run"),
 			"fire": Input.is_action_just_pressed("fire")}
+
+func _cam_aim() -> Vector3:
+	return Vector3(sin(cam_yaw) * cos(cam_pitch), sin(cam_pitch), cos(cam_yaw) * cos(cam_pitch)).normalized()
 
 func _shoot() -> void:
 	shots_fired += 1
+	if gun_player != null:
+		gun_player.play()
 	var from := player.global_position + Vector3.UP * 1.2 + aim_dir * 0.6
 	var to := from + aim_dir * GUN_RANGE
 	var space := get_world_3d().direct_space_state
@@ -599,6 +660,16 @@ func _update_camera() -> void:
 	if cam == null or player == null:
 		return
 	var p := player.global_position
+	if mode == "play":
+		# mouse-look orbit: third-person behind the look direction
+		var back := Vector3(-sin(cam_yaw), 0, -cos(cam_yaw))
+		var height: float = 3.2 - cam_pitch * 4.5
+		var target := p + back * 6.5 + Vector3.UP * height
+		cam.global_position = cam.global_position.lerp(target, 0.3)
+		cam.look_at(p + Vector3.UP * 1.4 + _cam_aim() * 5.0, Vector3.UP)
+		player.rotation.y = cam_yaw
+		player_yaw = cam_yaw
+		return
 	var back := Vector3(-sin(player_yaw), 0, -cos(player_yaw))
 	var target := p + back * 8.0 + Vector3.UP * 4.6
 	cam.global_position = cam.global_position.lerp(target, 0.14)
