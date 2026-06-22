@@ -78,6 +78,7 @@
 <div id="hud" class="hidden">
   <div id="topleft" class="panel">
     <div class="brand">NEON <b>DELTA</b></div>
+    <div class="row"><span>LEAD</span><span id="lead">RAE</span></div>
     <div class="row"><span>HEALTH</span></div>
     <div class="bar"><i id="hp"></i></div>
     <div class="row"><span>MODE</span><span id="mode">ON FOOT</span></div>
@@ -267,7 +268,7 @@ function boot(){
   /* ---------- player + entities ---------- */
   const player = {
     pos:new THREE.Vector3(0,0,0), yaw:0, hp:100, money:0, heat:0, heatTimer:0,
-    mode:'foot', sprint:false
+    mode:'foot', sprint:false, lead:0
   };
   // player avatar (third person)
   const avatar = new THREE.Group();
@@ -279,6 +280,18 @@ function boot(){
     new THREE.MeshStandardMaterial({color:0xd9b08c, roughness:0.7}));
   headM.position.y=1.95; avatar.add(headM);
   scene.add(avatar);
+
+  /* ---------- the crew + THE SWITCH ---------- */
+  const LEADS=[
+    {key:'rae',     name:'RAE',     color:0xff2a6d, blurb:'Redline — faster cars'},
+    {key:'theo',    name:'THEO',    color:0x05d9e8, blurb:'Overwatch — low Heat from chaos'},
+    {key:'frankie', name:'FRANKIE', color:0xf9f871, blurb:'Hot Streak — more cash, tougher'}
+  ];
+  function lead(){ return LEADS[player.lead]; }
+  function setLead(i){ player.lead=((i%3)+3)%3; const L=lead();
+    torso.material.emissive.setHex(L.color);
+    const el=$('lead'); if(el){ el.textContent=L.name; el.style.color='#'+L.color.toString(16).padStart(6,'0'); }
+    toast('Switch ▸ '+L.name+' · '+L.blurb); }
 
   // cars
   const cars=[]; // {g, heading, speed, parked, police, hp}
@@ -378,8 +391,9 @@ function boot(){
   function flashHit(p){ const l=new THREE.PointLight(0xff2a6d,4,10,2); l.position.copy(p);
     scene.add(l); tracers.push({line:l, life:0.08, isLight:true}); }
   function killPed(ped){ ped.alive=false; ped.mesh.rotation.x=Math.PI/2; ped.mesh.position.y=0.4;
-    ped.mesh.traverse(o=>{ if(o.material&&o.material.emissive){} });
-    addHeat(0.9); addMoney(8); toast('Witnesses scatter — Heat up');
+    addHeat(0.9*(lead().key==='theo'?0.45:1));
+    addMoney(8*(lead().key==='frankie'?2:1));
+    toast('Witnesses scatter — Heat up');
     setTimeout(()=>{ scene.remove(ped.mesh); }, 6000); }
 
   /* ---------- police ---------- */
@@ -417,7 +431,7 @@ function boot(){
       const np=new THREE.Vector3(nx,0,nz); resolveBuildings(np,1.4); clampWorld(np);
       c.g.position.x=np.x; c.g.position.z=np.z; c.g.rotation.y=c.heading;
       // attack
-      if(dist<7){ player.hp-=18*dt*(0.6+player.heat*0.15); }
+      if(dist<7){ player.hp-=18*dt*(0.6+player.heat*0.15)*(lead().key==='frankie'?0.7:1); }
     }
   }
   function destroyCar(c){ // turn into wreck
@@ -467,6 +481,7 @@ function boot(){
     if(e.code==='KeyF') tryEnterExit();
     if(e.code==='KeyJ' && jobStage===0) newJob();
     if(e.code==='KeyR') toggleRadio();
+    if(e.code==='Tab'){ e.preventDefault(); setLead(player.lead+1); }
   });
   addEventListener('keyup',e=>{ keys[e.code]=false; });
   let pitch=0;
