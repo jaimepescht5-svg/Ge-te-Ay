@@ -2,6 +2,16 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 5 — Depth & Pitch
+- Added three docs that deepen the world and frame the sell:
+  - 24 World Lore & Timeline — the invented 1700s→present history of Solano County
+    (drained-and-sold, boom/storm/rebuild, the Vega century, Crane's Reclamation)
+  - 25 Glossary & Slang — a design-term glossary + an invented Port Soleil street
+    lexicon (a wheel/key/mouth, dry money, spring rain, "that's Soleil")
+  - 26 Pitch & Positioning — elevator pitch, the differentiation table, audience,
+    store blurb, and tagline candidates
+- Updated README doc map.
+
 ## Round 4 — Craft & Production
 - Added four craft/production docs:
   - 20 Tech & Production — technical pillars, engine stance, scope discipline,

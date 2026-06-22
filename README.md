@@ -72,6 +72,9 @@ the full firewall.
 | [21 — Phone & Meta UI](docs/21-the-phone-and-meta-ui.md) | The in-fiction phone hub and HUD |
 | [22 — Sample Mission Script](docs/22-sample-mission-script.md) | "Wash Day" written out to show the voice |
 | [23 — Accessibility](docs/23-accessibility.md) | The full accessibility spec |
+| [24 — World Lore & Timeline](docs/24-world-lore-timeline.md) | The deep history of Solano County |
+| [25 — Glossary & Slang](docs/25-glossary-slang.md) | Team terminology + in-world street slang |
+| [26 — Pitch & Positioning](docs/26-pitch-and-positioning.md) | The elevator pitch and market framing |
 
 ---
 
