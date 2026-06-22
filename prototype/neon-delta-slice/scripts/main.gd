@@ -35,13 +35,9 @@ const CHECKPOINTS := 8
 
 # ---- selfcheck ----
 const SELFCHECK_SECONDS := 60.0
-const CAPTURE_INTERVAL := 1.5
 
 var mode := "play"
 var selfcheck_seconds := SELFCHECK_SECONDS
-var capture_interval := CAPTURE_INTERVAL
-var capture_max := 40
-var frames_dir := "user://frames"
 
 # Resolve sibling scripts by preload (not global `class_name`) so the project
 # parses on a clean clone with no `.godot/` cache — i.e. a fresh headless run.
@@ -55,8 +51,6 @@ var hud_speed: Label
 var hud_info: Label
 
 var sim_time := 0.0
-var next_capture := 0.0
-var capture_index := 0
 var steer_current := 0.0
 
 # telemetry / lap state
@@ -87,17 +81,6 @@ func _ready() -> void:
 	var ts := OS.get_environment("TIME_SCALE")
 	if ts != "":
 		Engine.time_scale = float(ts)
-	# "filmstrip" capture knobs for making clips (defaults preserve sparse review)
-	var ci := OS.get_environment("CAP_INTERVAL")
-	if ci != "":
-		capture_interval = float(ci)
-	var cm := OS.get_environment("CAP_MAX")
-	if cm != "":
-		capture_max = int(cm)
-	# let the viz tool redirect frame output (tools/viz)
-	var vo := OS.get_environment("VIZ_OUT")
-	if vo != "":
-		frames_dir = vo
 	randomize()
 	track = TrackGeometry.new(HALF_W, HALF_H, CORNER_R, ROAD_WIDTH, TRACK_SAMPLES, CHECKPOINTS)
 	bot = DriverBot.new(track)
@@ -417,9 +400,6 @@ func _reset_car() -> void:
 func _process(_d: float) -> void:
 	_update_camera()
 	_update_hud()
-	if mode == "selfcheck" and sim_time >= next_capture:
-		next_capture += capture_interval
-		_capture_frame()
 
 func _update_camera() -> void:
 	if cam == null or not cam.is_inside_tree() or car == null:
@@ -438,27 +418,13 @@ func _update_hud() -> void:
 		("--" if best_lap == INF else "%.1fs" % best_lap), off,
 	]
 
-func _capture_frame() -> void:
-	# headless (--headless) has no rendering surface; skip capture there so the
-	# logic loop can run fast for debugging. Cap frames so a run can't flood disk.
-	if DisplayServer.get_name() == "headless" or capture_index >= capture_max:
-		capture_index += 1
-		return
-	var tex := get_viewport().get_texture()
-	if tex == null:
-		return
-	var img := tex.get_image()
-	DirAccess.make_dir_recursive_absolute(frames_dir)
-	img.save_png("%s/frame_%04d.png" % [frames_dir, capture_index])
-	capture_index += 1
-
 # ---------------------------------------------------------------- selfcheck
 var _finishing := false
 func _finish_selfcheck() -> void:
 	if _finishing:
 		return
 	_finishing = true
-	print("[selfcheck] finishing at sim_time=%.1f laps=%d frames=%d" % [sim_time, laps_done, capture_index])
+	print("[selfcheck] finishing at sim_time=%.1f laps=%d frames=%d" % [sim_time, laps_done, VizCapture.idx])
 	var avg_speed := 0.0
 	var off_count := 0
 	for s in samples:
@@ -479,7 +445,7 @@ func _finish_selfcheck() -> void:
 		"off_track_seconds": off_track_time,
 		"off_track_fraction": off_frac,
 		"distance_m": distance,
-		"frames_captured": capture_index,
+		"frames_captured": VizCapture.idx,
 	}
 
 	# ---- invariants the loop can check WITHOUT a human ----
@@ -491,7 +457,6 @@ func _finish_selfcheck() -> void:
 	checks.append(_check("completed at least one lap", laps_done >= 1))
 	checks.append(_check("bot mostly stays on track (off < 25%)", off_frac < 0.25))
 	checks.append(_check("no absurd cornering loads (<6 g)", max_lateral_g < 6.0))
-	checks.append(_check("captured frames for visual review", capture_index >= 3))
 
 	var passed := true
 	for c in checks:
