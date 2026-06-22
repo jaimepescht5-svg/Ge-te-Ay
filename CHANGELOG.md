@@ -2,6 +2,25 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 22 — ONE ENGINE: killed the resurrected Three.js web build
+- **Resolved the two-engine split for good.** The Three.js web prototype in
+  `game/` had been deleted once (commit `c54aa98`, "Godot is the game now") and
+  then accidentally restored by a later integration merge — so the repo
+  simultaneously *claimed it was gone* (CLAUDE.md: "Don't touch `game/` — it
+  doesn't exist anymore") *and shipped a working 1,163-line copy of it*. That
+  contradiction is now gone: **`game/` is deleted; Godot 4.3 is the single
+  engine.**
+- **Reconciled every reference** so the docs no longer lie either direction:
+  removed the `make serve` target + `GAME_DIR` from the `Makefile`; rewrote the
+  README "Play it now" section around `make engine`/`make slice`/`make viz`;
+  fixed the repo map, command table, and environment notes in
+  `docs/57-repository-and-build-structure.md`; updated `CLAUDE.md` (repo map,
+  intro, commands, the "What NOT to Do" line) and `CONTRIBUTING.md`; and marked
+  the two-engine item **resolved** in `HEALTH.md` (its own recommendation #2).
+- **Verified:** full 300s headless self-check passes (`==== PASS ====`) —
+  physics stable, ~3.3 km driven, 24/33 waypoints, never fell off the world; doc
+  link-checker green.
+
 ## Round 21 — INTEGRATION + SCAFFOLDING: one canonical base + the AI-agent operating layer
 - **Integrated the parallel agent branches into one base**: the districted-world
   game (Round 17), boats + hurricane + boatable canals (Rounds 18–19,

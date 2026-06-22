@@ -14,7 +14,7 @@ mechanical "how we converge" layer.
   (e.g. `claude/building-world-78y8pq`).
 - Branch from the **most complete integration branch**, not from a stale tip.
   When in doubt, list branches and pick the superset (the one with `docs/` +
-  `game/` + `prototype/` + `tools/`).
+  `prototype/` + `tools/`).
 - **Never force-push a shared/integration branch.** Never push to a branch you
   weren't assigned.
 

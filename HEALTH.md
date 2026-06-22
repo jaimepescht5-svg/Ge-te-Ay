@@ -6,8 +6,9 @@
 
 NEON DELTA is a **clean-room, legally-distinct open-world crime game** developed
 by parallel AI agents in "Rounds." It is, in practice, **a ~6,100-line design
-bible (60 docs) plus two playable prototypes** — a Three.js browser build and a
-Godot slice.
+bible (60 docs) plus one playable prototype** — the Godot 4.3 slice. (The former
+Three.js browser build was deleted to end the two-engine split — see "What
+changed since this assessment," below.)
 
 - **As a *game project*:** terminally over-scoped. Open-world crime is the single
   most expensive genre in existence ($100M+, hundreds of people, 5+ years). No
@@ -15,7 +16,7 @@ Godot slice.
   shippable AAA game.
 - **As an AI-driven creative / worldbuilding / portfolio exercise:** genuinely
   strong. Coherent world, disciplined design, real legal-distinctiveness work,
-  and two things you can actually run. That puts it ahead of ~99% of "I'm going
+  and something you can actually run. That puts it ahead of ~99% of "I'm going
   to make a GTA" projects, which never produce anything runnable.
 
 Grade it as the second thing, not the first.
@@ -25,8 +26,7 @@ Grade it as the second thing, not the first.
 | Area | Substance |
 |---|---|
 | Design docs (`docs/`) | 60 files, ~6,100 lines — vision, world, characters, story, economy, online, localization, level patterns, GTM. |
-| Three.js game (`game/`) | ~1,160-line single `index.html`. Drive/walk/shoot, wanted level, delivery jobs, districted city, tides, **boats + hurricane season**. |
-| Godot slice (`prototype/`) | ~1,720 lines GDScript. Driving + on-foot verbs, enter/exit car, aiming, headless self-check rig, viz capture. |
+| Godot slice (`prototype/`) | ~3,400 lines GDScript. Driving + on-foot verbs, enter/exit car, aiming, districts/tides/heat HUD, headless self-check rig, viz capture. |
 | Tooling | `make check` gate, doc link-checker, self-check scripts, `VizCapture` autoload, `.claude/` session hook. |
 
 ## Health by dimension
@@ -40,11 +40,11 @@ parallel `claude/*` branches had diverged with genuinely split, unmerged work
 (the Three.js game advanced on one branch, the Godot slice on two others). There
 was no canonical trunk. They are now consolidated — see below.
 
-**Two-engine problem — YELLOW.** A Three.js demo *and* a Godot slice, neither
-connected to the other or to the docs. That's two dead-end stacks, not one
-prototype with momentum. **Recommendation: pick one.** Godot if you want any
-real shot at it becoming a game; Three.js if it stays a web showcase. Maintaining
-both dilutes already-thin engineering.
+**Two-engine problem — was YELLOW, now RESOLVED.** There used to be a Three.js
+demo *and* a Godot slice, neither connected to the other or to the docs — two
+dead-end stacks, not one prototype with momentum. **Resolved: the Three.js web
+build (`game/`) was deleted; Godot is the single engine.** See "What changed
+since this assessment," below.
 
 **Doc organization — GREEN.** Well-structured and internally linked (link-checker
 passes on all 67 markdown files). The one numbering collision (duplicate `24-`)
@@ -80,10 +80,23 @@ runtime pass.)
 
 1. **Make this trunk the canonical branch** and retire the old `claude/*`
    branches so future agents converge on one source of truth.
-2. **Commit to one engine.** Decide Godot vs Three.js and delete or archive the
-   other. The split is the main thing quietly rotting the project.
+2. ~~**Commit to one engine.** Decide Godot vs Three.js and delete or archive the
+   other.~~ **DONE** (see below) — the Three.js `game/` build was deleted; Godot
+   is the one engine.
 3. **Right-size the ambition in the README.** Frame it honestly as a design
    bible + prototypes, not an in-development AAA title — that's the truthful and
    more impressive framing anyway.
 4. **Run `make check` with the engine fetched** to get a real runtime pass on the
    consolidated Godot slice before building further on it.
+
+## What changed since this assessment
+
+- **The two-engine split was ended (recommendation #2).** The Three.js web build
+  in `game/` — which had earlier been deleted (commit `c54aa98`, "Godot is the
+  game now") and then accidentally resurrected by an integration merge, leaving
+  the repo claiming it was both gone *and* present — was deleted for good. All
+  references in `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `Makefile`, and
+  `docs/57` were reconciled. Godot is now the single engine, in fact and in docs.
+- **Recommendation #4 (runtime pass) is now satisfied:** with the engine fetched,
+  the full 300-second headless self-check passes (`==== PASS ====`): physics
+  stable, ~3.3 km driven, 24/33 waypoints, never fell off the world.

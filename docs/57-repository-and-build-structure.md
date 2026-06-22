@@ -19,8 +19,6 @@ Ge-te-Ay/
 │
 ├── docs/              ← the design bible: NN-kebab-topic.md (this lives here)
 │
-├── game/              ← Three.js (WebGL) playable prototype — single index.html
-│
 ├── prototype/
 │   └── neon-delta-slice/   ← Godot 4.3 gray-box slice + self-observation rig
 │       ├── scripts/        ← main.gd, track.gd, bot.gd, sandbox.gd, foot_bot.gd
@@ -43,7 +41,6 @@ Ge-te-Ay/
 | If you're writing… | Put it in… | And remember to… |
 |---|---|---|
 | Design / narrative / systems prose | `docs/NN-topic.md` (next free number) | link it from README map **and** `00-index.md` |
-| Web-prototype gameplay | `game/index.html` | keep it single-file, no build step; update `game/README.md` |
 | Engine gameplay / a new verb slice | `prototype/.../scripts/` + a `selfcheck` | assert invariants, not "fun" |
 | A reusable check or visual tool | `tools/` | wire it into `make check` if it's a gate |
 | Anything machine-local (engine, caches, frames) | nowhere — it's gitignored | fetch/regenerate it, never commit it |
@@ -55,7 +52,6 @@ targets; the essentials:
 
 | Command | Does |
 |---|---|
-| `make serve` | Serves `game/` at `http://localhost:8000`. |
 | `make check` | **The gate.** Doc-link validation + prototype self-checks (if engine present). Exits non-zero on any failure. |
 | `make engine` | One-time download of the pinned Godot 4.3 binary into `prototype/.../engine/`. |
 | `make slice` | Play the Godot driving slice yourself (you judge feel). |
@@ -89,8 +85,6 @@ thin, high-leverage human wire. Keep it thin; never automate it away.
 
 ## Environment notes
 
-- **Web prototype** needs only `python3` (for the static server) and a desktop
-  browser with WebGL. It loads Three.js from a CDN on first run.
 - **Engine prototype / self-checks** need the Godot 4.3 binary (`make engine`),
   plus `xvfb` + Mesa software GL for headless rendering (present in the standard
   container). `make check` *skips* the engine checks gracefully when the binary

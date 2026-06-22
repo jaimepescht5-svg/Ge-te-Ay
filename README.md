@@ -11,22 +11,26 @@ it your way, across a living city that never stops moving.
 
 This repository is the **living design bible** for the game: vision, world,
 characters, story, systems, economy, and the technical and legal scaffolding
-that keeps it an original work — **plus a real, playable 3D prototype.**
+that keeps it an original work — **plus a real, playable engine prototype.**
 
 ---
 
-## ▶ Play it now (3D prototype)
+## ▶ Play it now (Godot slice)
 
-There's an actual, runnable 3D open-world build in [`game/`](game/) — drive,
-walk, shoot, draw a wanted level, lose the cops, and run delivery jobs around a
-neon city. Built with Three.js (WebGL), no install needed:
+There's a real-engine (Godot 4.3) gray-box slice in
+[`prototype/neon-delta-slice/`](prototype/neon-delta-slice/) — drive through
+Port Soleil's districts, walk, shoot, draw a wanted level, lose the cops, with a
+self-observation rig that drives the city headlessly and asserts it stays stable:
 
 ```bash
-cd game && python3 -m http.server 8000   # then open http://localhost:8000
+make engine     # one-time: download the pinned Godot 4.3 binary
+make slice      # play it yourself (you are the judge of feel)
+make selfcheck  # headless bot self-checks (assert invariants)
+make viz        # render headless -> contact sheet + clip
 ```
 
-(Or just open `game/index.html` in a desktop browser.) Full controls and details
-in [`game/README.md`](game/README.md).
+Full controls and details in
+[`prototype/neon-delta-slice/README.md`](prototype/neon-delta-slice/README.md).
 
 ---
 
@@ -139,21 +143,13 @@ parallel. Before you touch anything:
   — where everything lives and how to run it.
 
 ```bash
-make help     # every task        make serve   # play the web build
+make help     # every task        make engine  # fetch the Godot binary
 make check    # the gate          make slice   # play the engine slice
 ```
 
 ---
 
-## Playable prototypes
-
-**3D Web prototype** — [`game/`](game/) — drive through Port Soleil's seven
-districts, walk, shoot, draw a wanted level, lose the cops. Built with Three.js
-(WebGL), no install needed:
-
-```bash
-cd game && python3 -m http.server 8000   # then open http://localhost:8000
-```
+## Playable prototype
 
 **Godot engine prototype** — [`prototype/neon-delta-slice/`](prototype/neon-delta-slice/)
 is a real-engine (Godot 4.3) gray-box driving slice with a self-observation rig:
@@ -165,5 +161,5 @@ asserts the slice is stable. See [doc 24a](docs/24a-ai-development-and-self-obse
 ## Status
 
 🟢 **Active design + first playable.** This bible is iterated continuously and
-now has running prototypes (web + engine). See [`CHANGELOG.md`](CHANGELOG.md)
-for the full build history.
+now has a running engine prototype (the Godot slice). See
+[`CHANGELOG.md`](CHANGELOG.md) for the full build history.

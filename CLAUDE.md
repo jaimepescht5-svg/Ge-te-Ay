@@ -20,9 +20,9 @@ The repo is two things at once:
 1. **A living design bible** — 56+ numbered docs in [`docs/`](docs/) covering
    vision, world, characters, story, systems, economy, art, audio, online, and
    the legal/production scaffolding.
-2. **Real, running prototypes** — a playable Three.js web build in
-   [`game/`](game/) and a real-engine (Godot 4.3) self-observing slice in
-   [`prototype/`](prototype/).
+2. **A real, running prototype** — a real-engine (Godot 4.3) self-observing
+   slice in [`prototype/`](prototype/). (A former Three.js web build in `game/`
+   was removed — Godot is the single engine. Don't reintroduce it.)
 
 **New to the project?** Read [`docs/00-index.md`](docs/00-index.md) (orientation)
 then [`docs/01-vision.md`](docs/01-vision.md). For *how it gets built by an AI*,
@@ -36,8 +36,7 @@ read [`docs/24a-ai-development-and-self-observation.md`](docs/24a-ai-development
 | Path | What it is | Who touches it |
 |---|---|---|
 | [`docs/`](docs/) | The numbered design bible (`NN-topic.md`). The canonical "what". | Narrative, design, production agents |
-| [`game/`](game/) | Three.js (WebGL) playable prototype — single `index.html`, no build step. | Web-prototype agents |
-| [`prototype/neon-delta-slice/`](prototype/neon-delta-slice/) | Godot 4.3 gray-box slice + self-observation rig (bots, self-checks). | Engine / gameplay agents |
+| [`prototype/neon-delta-slice/`](prototype/neon-delta-slice/) | Godot 4.3 gray-box slice + self-observation rig (bots, self-checks). **The only prototype.** | Engine / gameplay agents |
 | [`tools/viz/`](tools/viz/) | Visual-check harness (headless render → contact sheet + clip). | Any agent needing a visual sign-off |
 | [`tools/check.sh`](tools/check.sh) | The umbrella verification entrypoint (`make check`). | Everyone, before every commit |
 | `CLAUDE.md` (this file) | Agent operating guide. | Everyone |
@@ -108,7 +107,6 @@ check does not ship.
 
 ```bash
 make help            # list every target
-make serve           # run the web prototype at http://localhost:8000
 make check           # umbrella verification: doc links + prototype self-checks
 make engine          # one-time: download the pinned Godot engine
 make slice           # play the Godot driving slice yourself
@@ -315,7 +313,7 @@ centered at y=0 has its top at y=+1 — a 1m step the car can't climb.
 
 ## What NOT to Do
 
-- Don't touch `game/` — it doesn't exist anymore
+- Don't recreate `game/` (the old Three.js web build) — it was deleted on purpose; Godot is the one engine
 - Don't create a PR without the user asking
 - Don't push to main
 - Don't use `--no-verify` or skip hooks

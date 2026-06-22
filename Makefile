@@ -4,23 +4,17 @@
 
 SHELL := /bin/bash
 
-GAME_DIR    := game
 SLICE_DIR   := prototype/neon-delta-slice
 ENGINE      := $(SLICE_DIR)/engine/Godot_v4.3-stable_linux.x86_64
-PORT        ?= 8000
 
 .DEFAULT_GOAL := help
 
-.PHONY: help serve check docs engine slice selfcheck viz clean
+.PHONY: help check docs engine slice selfcheck viz clean
 
 help: ## List all targets
 	@echo "NEON DELTA — make targets:"
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
-
-serve: ## Serve the Three.js web prototype at http://localhost:$(PORT)
-	@echo "Serving $(GAME_DIR)/ at http://localhost:$(PORT)  (Ctrl-C to stop)"
-	@cd $(GAME_DIR) && python3 -m http.server $(PORT)
 
 check: ## THE GATE — doc-link validation + prototype self-checks (exits non-zero on failure)
 	@tools/check.sh
