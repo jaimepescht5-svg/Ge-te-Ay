@@ -350,6 +350,8 @@ function boot(){
   const raycaster=new THREE.Raycaster();
   function shoot(){
     if(player.hp<=0) return;
+    sfxShot();
+    pitch = Math.min(0.4, pitch + 0.012); // recoil kick
     raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
     // build target list
     const targets=[];
@@ -366,7 +368,7 @@ function boot(){
       const ped=peds.find(p=>p.mesh===obj || p.mesh===hit.object || p.mesh===hit.object.parent);
       const pol=cars.find(c=>c.g===obj || c.g===hit.object.parent || c.g===hit.object.parent?.parent);
       if(ped && ped.alive){ killPed(ped); }
-      else if(pol && pol.police){ pol.hp-=34; flashHit(hit.point);
+      else if(pol && pol.police){ pol.hp-=34; flashHit(hit.point); sfxHit();
         if(pol.hp<=0){ destroyCar(pol); addMoney(40); } addHeat(0.5); }
     } else {
       const far=origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(120));
@@ -424,7 +426,7 @@ function boot(){
     const fire=new THREE.PointLight(0xff6a00,3,30,2); fire.position.copy(c.g.position); fire.position.y=2;
     scene.add(fire); tracers.push({line:fire,life:1.2,isLight:true});
     c.g.position.y=-0.2; c.g.rotation.z=0.2;
-    toast('Cop car wrecked');
+    sfxBoom(); toast('Cop car wrecked');
   }
 
   /* ---------- missions (delivery jobs) ---------- */
@@ -518,6 +520,58 @@ function boot(){
   function stopRadio(){ radioOn=false; clearInterval(radioNodes._timer);
     radioNodes.forEach(n=>{ try{ n.stop&&n.stop(); n.disconnect&&n.disconnect(); }catch(e){} });
     radioNodes=[]; toast('📻 off'); }
+
+  /* ---------- SFX (WebAudio) ---------- */
+  let engOsc=null, engGain=null, sirenNodes=null;
+  function actx(){ if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } } return audioCtx; }
+  function noiseBuffer(ctx,dur){ const len=Math.floor(ctx.sampleRate*dur); const buf=ctx.createBuffer(1,len,ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; return buf; }
+  function sfxShot(){ const ctx=actx(); if(!ctx)return; const t=ctx.currentTime;
+    const src=ctx.createBufferSource(); src.buffer=noiseBuffer(ctx,0.12);
+    const g=ctx.createGain(); g.gain.setValueAtTime(0.45,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1400; bp.Q.value=0.7;
+    src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t); src.stop(t+0.13); }
+  function sfxHit(){ const ctx=actx(); if(!ctx)return; const t=ctx.currentTime;
+    const o=ctx.createOscillator(); o.type='square'; o.frequency.setValueAtTime(190,t); o.frequency.exponentialRampToValueAtTime(60,t+0.1);
+    const g=ctx.createGain(); g.gain.setValueAtTime(0.28,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+0.13); }
+  function sfxBoom(){ const ctx=actx(); if(!ctx)return; const t=ctx.currentTime;
+    const src=ctx.createBufferSource(); src.buffer=noiseBuffer(ctx,0.5);
+    const g=ctx.createGain(); g.gain.setValueAtTime(0.6,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(900,t); lp.frequency.exponentialRampToValueAtTime(80,t+0.4);
+    src.connect(lp); lp.connect(g); g.connect(ctx.destination); src.start(t); src.stop(t+0.5); }
+  function ensureEngine(){ const ctx=actx(); if(!ctx||engOsc)return;
+    engOsc=ctx.createOscillator(); engOsc.type='sawtooth'; engOsc.frequency.value=55;
+    engGain=ctx.createGain(); engGain.gain.value=0;
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=420;
+    engOsc.connect(lp); lp.connect(engGain); engGain.connect(ctx.destination); engOsc.start(); }
+  function updateEngine(){ if(!audioCtx) return; ensureEngine(); if(!engOsc) return; const ctx=audioCtx;
+    if(player.mode==='drive' && player.car){ const sp=Math.abs(player.car.speed);
+      engGain.gain.setTargetAtTime(0.05, ctx.currentTime, 0.1);
+      engOsc.frequency.setTargetAtTime(45+sp*4.2, ctx.currentTime, 0.05);
+    } else { engGain.gain.setTargetAtTime(0, ctx.currentTime, 0.1); } }
+  function updateSiren(){ if(!audioCtx) return; const ctx=audioCtx;
+    const want=player.heat>=1 && cars.some(c=>c.police&&c.hp>0);
+    if(want && !sirenNodes){ const o=ctx.createOscillator(); o.type='sine';
+      const g=ctx.createGain(); g.gain.value=0.045; o.connect(g); g.connect(ctx.destination); o.start(); sirenNodes={o,g,t:0}; }
+    if(sirenNodes){ if(!want){ try{ sirenNodes.o.stop(); sirenNodes.g.disconnect(); }catch(e){} sirenNodes=null; }
+      else { sirenNodes.t+=0.016; sirenNodes.o.frequency.setValueAtTime(640+Math.sin(sirenNodes.t*6)*200, ctx.currentTime); } } }
+
+  /* ---------- pickups ---------- */
+  const pickups=[];
+  function makePickup(type){ const color=type==='hp'?0x39ff14:0xf9f871;
+    const m=new THREE.Mesh(new THREE.RingGeometry(0.7,1.05,18),
+      new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,transparent:true,opacity:0.9}));
+    m.rotation.x=-Math.PI/2; m.position.y=0.2; return m; }
+  function randField(){ let x,z,t=0; do{ x=(Math.random()*2-1)*EXTENT*0.9; z=(Math.random()*2-1)*EXTENT*0.9; t++; }
+    while(insideBuilding(x,z)&&t<20); return [x,z]; }
+  function spawnPickups(){ for(let k=0;k<10;k++){ const type=Math.random()<0.5?'hp':'cash';
+    const m=makePickup(type); const [x,z]=randField(); m.position.set(x,0.2,z); scene.add(m); pickups.push({mesh:m,type}); } }
+  function updatePickups(dt){ for(const p of pickups){ if(!p.mesh.visible)continue; p.mesh.rotation.z+=dt*2;
+    if(Math.hypot(p.mesh.position.x-player.pos.x, p.mesh.position.z-player.pos.z)<2.4){ p.mesh.visible=false;
+      if(p.type==='hp'){ player.hp=Math.min(100,player.hp+30); toast('+30 health'); } else { addMoney(120); toast('+$120'); }
+      setTimeout(()=>{ const [x,z]=randField(); p.mesh.position.set(x,0.2,z); p.mesh.visible=true; }, 12000); } } }
+  spawnPickups();
 
   /* ---------- start ---------- */
   let started=false;
@@ -677,7 +731,8 @@ function boot(){
       if(player.mode==='foot') updateFoot(dt); else updateDrive(dt);
       updatePeds(dt);
       maybeSpawnPolice(dt); updatePolice(dt);
-      updateTracers(dt);
+      updateTracers(dt); updatePickups(dt);
+      updateEngine(); updateSiren();
       checkJob(); updateState(dt);
       drawHUD(dt); drawMap();
       if(toastT>0){ toastT-=dt; if(toastT<=0) $('toast').style.opacity=0; }
