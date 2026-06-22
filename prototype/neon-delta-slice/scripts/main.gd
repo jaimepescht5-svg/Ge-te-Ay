@@ -32,6 +32,8 @@ const CAPTURE_INTERVAL := 1.5
 
 var mode := "play"
 var selfcheck_seconds := SELFCHECK_SECONDS
+var capture_interval := CAPTURE_INTERVAL
+var capture_max := 40
 var track: TrackGeometry
 var bot: DriverBot
 var car: VehicleBody3D
@@ -72,6 +74,13 @@ func _ready() -> void:
 	var ts := OS.get_environment("TIME_SCALE")
 	if ts != "":
 		Engine.time_scale = float(ts)
+	# "filmstrip" capture knobs for making clips (defaults preserve sparse review)
+	var ci := OS.get_environment("CAP_INTERVAL")
+	if ci != "":
+		capture_interval = float(ci)
+	var cm := OS.get_environment("CAP_MAX")
+	if cm != "":
+		capture_max = int(cm)
 	randomize()
 	track = TrackGeometry.new(HALF_W, HALF_H, CORNER_R, ROAD_WIDTH, TRACK_SAMPLES, CHECKPOINTS)
 	bot = DriverBot.new(track)
@@ -390,7 +399,7 @@ func _process(_d: float) -> void:
 	_update_camera()
 	_update_hud()
 	if mode == "selfcheck" and sim_time >= next_capture:
-		next_capture += CAPTURE_INTERVAL
+		next_capture += capture_interval
 		_capture_frame()
 
 func _update_camera() -> void:
@@ -413,7 +422,7 @@ func _update_hud() -> void:
 func _capture_frame() -> void:
 	# headless (--headless) has no rendering surface; skip capture there so the
 	# logic loop can run fast for debugging. Cap frames so a run can't flood disk.
-	if DisplayServer.get_name() == "headless" or capture_index >= 40:
+	if DisplayServer.get_name() == "headless" or capture_index >= capture_max:
 		capture_index += 1
 		return
 	var tex := get_viewport().get_texture()
