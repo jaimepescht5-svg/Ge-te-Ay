@@ -2,6 +2,17 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 12 — Online, Global & Community
+- Added three docs:
+  - 45 Solano Online (Deep Dive) — created-character, player crews & roles, the
+    co-op heist loop, fair business income, detailed anti-grief PvP structure,
+    seasons & continuity
+  - 46 Localization & Culturalization — culturalization (getting the melting-pot
+    source right), transcreating satire/slang, technical loc requirements
+  - 47 Photo Mode & Community — first-class photo mode, sharing/galleries, creator
+    tools, moderation, accessibility of capture
+- Updated README doc map.
+
 ## Round 11 — Mechanical & Thematic Capstones
 - Added three docs:
   - 42 Signature Abilities — full mechanical design of Redline/Overwatch/Hot

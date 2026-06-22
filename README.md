@@ -93,6 +93,9 @@ the full firewall.
 | [42 — Signature Abilities](docs/42-signature-abilities.md) | Full design of Redline, Overwatch, Hot Streak |
 | [43 — Achievements & Completion](docs/43-achievements-and-completion.md) | The trophy list and 100% definition |
 | [44 — Themes & Meaning](docs/44-themes-and-meaning.md) | What the game is actually about |
+| [45 — Solano Online (Deep Dive)](docs/45-solano-online-deepdive.md) | Crews, co-op heists, businesses, anti-grief |
+| [46 — Localization & Culturalization](docs/46-localization-and-culturalization.md) | Shipping the city's voice worldwide, respectfully |
+| [47 — Photo Mode & Community](docs/47-photo-mode-and-community.md) | Capture, sharing, creator tools, moderation |
 
 ---
 
