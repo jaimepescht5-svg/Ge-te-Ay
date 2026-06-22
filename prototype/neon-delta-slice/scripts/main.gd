@@ -170,6 +170,21 @@ var civ_palette := [0xff2a6d, 0xffffff, 0xf9f871, 0x05d9e8, 0xc0c0c0, 0x1a2a6b]
 var peds: Array = []   # {body, target:Vector2, speed:float, scatter:float, d:Dictionary}
 var skin_tones := [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac]
 
+# missions (dicts/Vectors can't be const). target is world XZ (x, z).
+var MISSIONS := [
+	{"id": 0, "name": "FIRST CONTACT",   "zone": "downtown", "target": Vector2(20, -145),  "desc": "Drive to Cayo Brava. Fast.",            "reward": 500,  "type": "drive_to"},
+	{"id": 1, "name": "CLEAN SWEEP",     "zone": "reach",    "target": Vector2(-300, 20),  "desc": "Eliminate the gang at The Reach.",      "reward": 800,  "type": "eliminate", "count": 3},
+	{"id": 2, "name": "HOT WHEELS",      "zone": "cut",      "target": Vector2(-10, 150),  "desc": "Steal the car. Get it to Sabal Springs.","reward": 1200, "type": "deliver"},
+	{"id": 3, "name": "HIGHLAND ESCAPE", "zone": "heights",  "target": Vector2(300, -20),  "desc": "Lose your Heat in Marisol Heights.",    "reward": 600,  "type": "lose_heat"},
+	{"id": 4, "name": "BAYOU RUNNER",    "zone": "bayou",    "target": Vector2(-250, 360), "desc": "Reach Bayou Verde with Heat >= 3.",     "reward": 1500, "type": "drive_heat"},
+]
+var current_mission := -1
+var money := 0
+var mission_completed: Array = []
+var mission_target_sphere: MeshInstance3D
+var mission_banner := ""
+var mission_banner_timer := 0.0
+
 # lead character (cosmetic only)
 var leads := ["RAE", "THEO", "FRANKIE"]
 var lead_idx := 0
@@ -942,6 +957,14 @@ func _update_minimap() -> void:
 		var cc = civilians[i]["car"]
 		if is_instance_valid(cc):
 			minimap_dots["traffic"][i].position = Vector3(cc.global_position.x, 52, cc.global_position.z)
+	# mission objective blip (yellow), shown only while a mission is active
+	if not minimap_dots.has("mission"):
+		minimap_dots["mission"] = []
+	var blip_n := 1 if current_mission >= 0 else 0
+	_ensure_dots("mission", blip_n, Color(0.98, 0.95, 0.3), 9.0)
+	if blip_n > 0:
+		var t: Vector2 = MISSIONS[current_mission]["target"]
+		minimap_dots["mission"][0].position = Vector3(t.x, 58, t.y)
 
 # ----------------------------------------------------------------- input
 func _setup_input() -> void:
@@ -1013,6 +1036,7 @@ func _physics_process(delta: float) -> void:
 	if fire_cooldown > 0.0:
 		fire_cooldown -= delta
 	_update_ammo_crates(delta)
+	_update_missions(delta)
 	if mode == "selfcheck":
 		_selfcheck_tick(delta)
 	if mode == "play":
@@ -1757,7 +1781,13 @@ func _update_hud() -> void:
 	var kmh := int(round(spd * 3.6))
 	var mode_str := "DRIVING" if in_car else "ON FOOT"
 	var pos := _car_xz() if in_car else _player_xz()
-	hud_left.text = "%d km/h\n%s\n%s" % [kmh, mode_str, _district_at(pos)]
+	var mission_str := ""
+	if mission_banner != "":
+		mission_str = "\n" + mission_banner
+	elif current_mission >= 0:
+		var m: Dictionary = MISSIONS[current_mission]
+		mission_str = "\n%s: %s" % [m["name"], m["desc"]]
+	hud_left.text = "$%d\n%d km/h\n%s\n%s%s" % [money, kmh, mode_str, _district_at(pos), mission_str]
 	var stars := ""
 	for i in range(5):
 		stars += "*" if i < int(round(heat)) else "."
@@ -1824,9 +1854,91 @@ func _finish_selfcheck() -> void:
 func _check(name: String, ok: bool) -> Dictionary:
 	return {"name": name, "ok": ok}
 
-# ----------------------------------------------------------------- missions (stub; filled in feature 7)
+# ----------------------------------------------------------------- missions
+# M cycles to the next not-yet-completed mission and accepts it.
 func _accept_next_mission() -> void:
-	pass
+	var n := MISSIONS.size()
+	for step in range(1, n + 1):
+		var idx := (current_mission + step) % n
+		if not mission_completed.has(idx):
+			current_mission = idx
+			_show_mission_target()
+			return
+	# all done
+	current_mission = -1
+	_clear_mission_target()
+
+func _mission_target_pos() -> Vector3:
+	var m: Dictionary = MISSIONS[current_mission]
+	var t: Vector2 = m["target"]
+	return Vector3(t.x, 4.0, t.y)
+
+func _show_mission_target() -> void:
+	if headless:
+		return
+	if mission_target_sphere == null:
+		mission_target_sphere = MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 8.0
+		sm.height = 16.0
+		mission_target_sphere.mesh = sm
+		var mat := StandardMaterial3D.new()
+		var c := _hex(0xf9f871)
+		c.a = 0.35
+		mat.albedo_color = c
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.emission_enabled = true
+		mat.emission = _hex(0xf9f871)
+		mat.emission_energy_multiplier = 0.8
+		mission_target_sphere.material_override = mat
+		add_child(mission_target_sphere)
+	mission_target_sphere.visible = true
+	mission_target_sphere.position = _mission_target_pos()
+
+func _clear_mission_target() -> void:
+	if mission_target_sphere != null:
+		mission_target_sphere.visible = false
+
+func _update_missions(delta: float) -> void:
+	if mission_banner_timer > 0.0:
+		mission_banner_timer -= delta
+		if mission_banner_timer <= 0.0:
+			mission_banner = ""
+	if current_mission < 0 or mode != "play":
+		return
+	var m: Dictionary = MISSIONS[current_mission]
+	var tpos: Vector2 = m["target"]
+	var pp := _active_pos()
+	var here := Vector2(pp.x, pp.z)
+	var dist := here.distance_to(tpos)
+	var done := false
+	match m["type"]:
+		"drive_to":
+			done = in_car and dist < 20.0
+		"drive_heat":
+			done = dist < 20.0 and heat >= 3.0
+		"lose_heat":
+			done = heat <= 0.0 and _district_at(here) == _zone_name(m["zone"])
+		_:
+			# eliminate / deliver: stubbed (objective: in progress)
+			done = false
+	if done:
+		_complete_mission()
+
+func _zone_name(zone_id: String) -> String:
+	for d in DISTRICTS:
+		if d["id"] == zone_id:
+			return d["name"]
+	return ""
+
+func _complete_mission() -> void:
+	var m: Dictionary = MISSIONS[current_mission]
+	money += m["reward"]
+	mission_completed.append(current_mission)
+	mission_banner = "MISSION COMPLETE  +$%d" % m["reward"]
+	mission_banner_timer = 4.0
+	current_mission = -1
+	_clear_mission_target()
 
 # ----------------------------------------------------------------- utils
 func _lerp_angle(from: float, to: float, weight: float) -> float:
