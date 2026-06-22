@@ -11,10 +11,10 @@ var track: TrackGeometry
 var steer_lookahead_base := 6.0
 var steer_lookahead_speed := 0.35
 var steer_gain := 1.9
-var max_lat_accel := 3.0     # m/s^2 the bot believes it can hold (lower grip car)
-var brake_decel := 7.0       # m/s^2 it plans to brake at
-var brake_horizon := 95.0    # how far ahead (m) it plans speed
-var max_speed := 40.0        # m/s target cap on straights
+var max_lat_accel := 2.0     # m/s^2 the bot believes it can hold (big low-grip car)
+var brake_decel := 6.0       # m/s^2 it plans to brake at
+var brake_horizon := 105.0   # how far ahead (m) it plans speed
+var max_speed := 34.0        # m/s target cap on straights
 
 func _init(track_: TrackGeometry) -> void:
 	track = track_

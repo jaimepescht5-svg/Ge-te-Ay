@@ -1,6 +1,6 @@
 {
-  "avg_speed_kmh": 73.6906792562998,
-  "best_lap": 25.8666666666665,
+  "avg_speed_kmh": 54.826060403972,
+  "best_lap": null,
   "checks": [
     {
       "name": "physics stable (no NaN position)",
@@ -16,7 +16,7 @@
     },
     {
       "name": "completed at least one lap",
-      "ok": true
+      "ok": false
     },
     {
       "name": "bot mostly stays on track (off < 25%)",
@@ -31,14 +31,14 @@
       "ok": true
     }
   ],
-  "distance_m": 573.284294366837,
-  "frames_captured": 175,
-  "laps_done": 1,
-  "max_lateral_g": 1.62157813100397,
+  "distance_m": 455.573482125998,
+  "frames_captured": 188,
+  "laps_done": 0,
+  "max_lateral_g": 4.04360359961833,
   "mode": "selfcheck",
   "off_track_fraction": 0,
   "off_track_seconds": 0,
-  "passed": true,
-  "sim_seconds": 28.0166666666664,
-  "top_speed_kmh": 124.224224853516
+  "passed": false,
+  "sim_seconds": 30.0166666666662,
+  "top_speed_kmh": 95.9016632080078
 }

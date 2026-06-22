@@ -11,14 +11,19 @@ extends Node3D
 # binary .tscn, which also makes diffs in the design repo meaningful.
 
 # ---- tunables (the "feel" of the verb — the part the human judge owns) ----
-# Street-car feel: a heavy car that has to be set up for corners and can slide,
-# NOT a stuck-to-the-road F1 car. Weight + lower grip + lazier steering.
-const ENGINE_POWER := 4400.0     # Newtons; ~2.9 m/s^2 on a 1500 kg body
-const BRAKE_POWER := 40.0
+# A big, heavy, lower-grip cruiser: modest power, slides under provocation,
+# takes its time. Deliberately NOT an F1 car.
+const ENGINE_POWER := 2800.0     # less power — unhurried acceleration
+const BRAKE_POWER := 38.0
 const MAX_STEER := 0.40          # rad (~23 deg) — less darty
 const STEER_SPEED := 4.0         # slower wheel response = more weight
-const CAR_MASS := 1500.0
-const WHEEL_FRICTION := 3.6      # lower = more slide / less F1 stick
+const CAR_MASS := 1800.0         # big, heavy vehicle
+const WHEEL_FRICTION := 2.6      # lower grip — more slide, less stick
+
+# Body dimensions (a large vehicle — think SUV/cruiser, not a hatch).
+const CAR_LENGTH := 6.0
+const CAR_WIDTH := 2.4
+const CAR_HEIGHT := 1.7
 
 # ---- track ----
 const HALF_W := 120.0
@@ -225,35 +230,37 @@ func _build_car() -> void:
 	car.mass = CAR_MASS
 	var col := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(1.9, 1.0, 4.4)
+	box.size = Vector3(CAR_WIDTH, CAR_HEIGHT, CAR_LENGTH)
 	col.shape = box
-	col.position.y = 0.4
+	col.position.y = CAR_HEIGHT * 0.5
 	car.add_child(col)
 	var mesh := MeshInstance3D.new()
 	var bm := BoxMesh.new()
-	bm.size = Vector3(1.9, 0.9, 4.4)
+	bm.size = Vector3(CAR_WIDTH, CAR_HEIGHT - 0.1, CAR_LENGTH)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.2, 0.85, 0.95)
 	mat.emission_enabled = true
 	mat.emission = Color(0.0, 0.4, 0.5)
 	mat.emission_energy_multiplier = 0.4
 	mesh.material_override = mat
-	mesh.position.y = 0.45
+	mesh.position.y = CAR_HEIGHT * 0.5
 	car.add_child(mesh)
 	# nose marker so heading is readable in screenshots
 	var nose := MeshInstance3D.new()
 	var nb := BoxMesh.new()
-	nb.size = Vector3(0.5, 0.3, 0.6)
+	nb.size = Vector3(0.6, 0.4, 0.8)
 	var nm := StandardMaterial3D.new()
 	nm.albedo_color = Color(1, 1, 0.3)
 	nose.material_override = nm
 	nose.mesh = nb
-	nose.position = Vector3(0, 0.8, -2.0)
+	nose.position = Vector3(0, CAR_HEIGHT * 0.5 + 0.5, -(CAR_LENGTH * 0.5 - 0.4))
 	car.add_child(nose)
-	_add_wheel(Vector3(-0.85, 0.0, -1.5), true, true)
-	_add_wheel(Vector3(0.85, 0.0, -1.5), true, true)
-	_add_wheel(Vector3(-0.85, 0.0, 1.5), true, false)
-	_add_wheel(Vector3(0.85, 0.0, 1.5), true, false)
+	var wx := CAR_WIDTH * 0.5 - 0.15
+	var wz := CAR_LENGTH * 0.5 - 1.0
+	_add_wheel(Vector3(-wx, 0.0, -wz), true, true)
+	_add_wheel(Vector3(wx, 0.0, -wz), true, true)
+	_add_wheel(Vector3(-wx, 0.0, wz), true, false)
+	_add_wheel(Vector3(wx, 0.0, wz), true, false)
 	car.position = start_pos
 	car.rotation.y = start_yaw
 	add_child(car)
@@ -263,7 +270,7 @@ func _add_wheel(pos: Vector3, traction: bool, steering: bool) -> void:
 	w.position = pos
 	w.use_as_traction = traction
 	w.use_as_steering = steering
-	w.wheel_radius = 0.4
+	w.wheel_radius = 0.5
 	w.wheel_rest_length = 0.3
 	w.suspension_travel = 0.35
 	w.suspension_stiffness = 30.0
@@ -385,7 +392,7 @@ func _compute_start() -> void:
 	start_index = track.nearest_index(Vector2(0, HALF_H))
 	var p := track.points[start_index]
 	var tangent := (track.points[(start_index + 1) % n] - p).normalized()
-	start_pos = Vector3(p.x, 0.6, p.y)
+	start_pos = Vector3(p.x, 1.0, p.y)  # spawn slightly high; suspension settles it
 	start_yaw = atan2(tangent.x, tangent.y)  # align +basis.z with the tangent
 	# first checkpoint ahead of the start line
 	next_cp = 0
