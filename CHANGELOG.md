@@ -2,6 +2,31 @@
 
 This log tracks the iterative expansion of the design. Newest at top.
 
+## Round 23 — CONSOLIDATION: merged the modular prototype onto the canonical trunk
+- **Reconciled the two live branches into one trunk.** The docs/scaffolding trunk
+  (`progress-review`: Round 21–22 — full bible, `make check` gate, Three.js
+  killed) had carried an unsplit, **monolithic** prototype: `main.gd` at 2,264
+  lines plus a separate 911-line `sandbox.gd` on-foot scene — both far past the
+  600-line hard rule. The engine branch (`continuous-branch-integration`) had
+  meanwhile split `main.gd` into 600-compliant modules and added features, but
+  lacked the scaffolding. Neither branch had both halves. This merge gives the
+  trunk **both**.
+- **Took the modular prototype** (`main.gd` 498 lines wiring `world_geo`,
+  `world_env`, `player`, `weapons`, `heat`, `hud`, `traffic`, `missions`; window
+  lights, parked cars, helicopter pursuit, eliminate missions; `TIME_SCALE=15`
+  fast self-check). On-foot verbs are now unified into the one Main scene, so the
+  orphaned `sandbox.gd` / `foot_bot.gd` (no `Sandbox.tscn` ever existed) were
+  **deleted**.
+- **Fixed the dangling references** the split left behind: `tools/check.sh` and
+  the `Makefile` `selfcheck` target called a `selfcheck_foot.sh` that does not
+  exist (the gate was already broken) — both now run the single unified
+  `selfcheck.sh`; the prototype README and `docs/57` script lists were rewritten
+  for the modular layout; stale `game/index.html` and `docs/24` (now `24a`) links
+  were repaired; `CLAUDE.md`'s module-boundary list now matches the real files.
+- **Verified:** `make check` is **green** — link-checker passes on 67 files and
+  the headless self-check **PASSES** (physics stable, 3,331 m driven, top 67
+  km/h, 24/33 waypoints, `min_y` 0.13). No `class_name`, no script over 600 lines.
+
 ## Round 22 — ONE ENGINE: killed the resurrected Three.js web build
 - **Resolved the two-engine split for good.** The Three.js web prototype in
   `game/` had been deleted once (commit `c54aa98`, "Godot is the game now") and

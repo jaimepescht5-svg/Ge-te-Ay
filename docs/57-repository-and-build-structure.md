@@ -21,8 +21,9 @@ Ge-te-Ay/
 │
 ├── prototype/
 │   └── neon-delta-slice/   ← Godot 4.3 gray-box slice + self-observation rig
-│       ├── scripts/        ← main.gd, track.gd, bot.gd, sandbox.gd, foot_bot.gd
-│       ├── tools/          ← fetch_godot.sh, selfcheck*.sh, plot_run.py
+│       ├── scripts/        ← main.gd + world_geo/world_env/player/weapons/heat/
+│       │                     hud/traffic/missions modules, bot.gd, capture.gd
+│       ├── tools/          ← fetch_godot.sh, selfcheck.sh, plot_run.py
 │       ├── engine/         ← fetched Godot binary (GITIGNORED — never committed)
 │       └── media/          ← committed hero frame, plots, sample reports
 │

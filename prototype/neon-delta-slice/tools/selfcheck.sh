@@ -23,6 +23,9 @@ FRAMES_DIR="${FRAMES_DIR:-/tmp/neon_delta_frames_$$}"
 
 export GAME_MODE=selfcheck
 export SC_SECONDS="${SC_SECONDS:-300}"
+# TIME_SCALE=15 makes 300 simulated seconds finish in ~20 real seconds.
+# physics_ticks_per_second is scaled in main.gd to keep each step at 1/60 s.
+export TIME_SCALE="${TIME_SCALE:-15}"
 
 if [ "${1:-}" = "--headless" ]; then
 	status=0

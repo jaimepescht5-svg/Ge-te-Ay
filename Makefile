@@ -28,9 +28,8 @@ engine: ## One-time: download the pinned Godot 4.3 engine binary
 slice: $(ENGINE) ## Play the Godot driving slice yourself (you are the judge of feel)
 	@$(ENGINE) --path $(SLICE_DIR)
 
-selfcheck: $(ENGINE) ## Run the driving + on-foot bot self-checks headless (assert invariants)
-	@echo "== driving slice ==";  $(SLICE_DIR)/tools/selfcheck.sh --headless
-	@echo "== on-foot sandbox =="; $(SLICE_DIR)/tools/selfcheck_foot.sh --headless
+selfcheck: $(ENGINE) ## Run the open-world bot self-check headless (driving + on-foot + heat invariants)
+	@$(SLICE_DIR)/tools/selfcheck.sh --headless
 
 viz: $(ENGINE) ## Render the slice headless -> contact sheet (AI) + clip (human)
 	@VIZ_GODOT=$(ENGINE) python3 tools/viz/viz.py check \

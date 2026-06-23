@@ -29,14 +29,9 @@ ENGINE="prototype/neon-delta-slice/engine/Godot_v4.3-stable_linux.x86_64"
 section "prototype self-checks"
 if [ -x "$ENGINE" ]; then
 	if prototype/neon-delta-slice/tools/selfcheck.sh --headless; then
-		ok "driving slice invariants"
+		ok "open-world slice invariants (driving + on-foot + heat)"
 	else
-		bad "driving slice self-check"
-	fi
-	if prototype/neon-delta-slice/tools/selfcheck_foot.sh --headless; then
-		ok "on-foot sandbox invariants"
-	else
-		bad "on-foot sandbox self-check"
+		bad "open-world slice self-check"
 	fi
 else
 	skip "Godot engine not fetched — run 'make engine' to enable engine checks"
