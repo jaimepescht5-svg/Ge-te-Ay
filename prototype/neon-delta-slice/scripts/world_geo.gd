@@ -8,6 +8,8 @@ var m  # reference to the main scene (set in setup)
 const ROAD_WIDTH := 12.0
 const ROAD_SPACING := 80.0
 
+var _win_mats: Dictionary = {}
+
 func setup(main) -> void:
 	m = main
 
@@ -116,7 +118,7 @@ func _build_district(d: Dictionary) -> void:
 		placed += 1
 		var bh := _building_height(style)
 		var ccol: Color = m._hex(palette[m.rng.randi_range(0, palette.size() - 1)])
-		_place_building(Vector3(cx + lx, 0, cz + lz), Vector3(bw, bh, bd), ground_col, ccol)
+		_place_building(Vector3(cx + lx, 0, cz + lz), Vector3(bw, bh, bd), ground_col, ccol, style)
 
 func _building_height(style: String) -> float:
 	match style:
@@ -137,7 +139,7 @@ func _near_route(p: Vector2, margin: float) -> bool:
 			return true
 	return false
 
-func _place_building(pos: Vector3, size: Vector3, base_col: Color, neon: Color) -> void:
+func _place_building(pos: Vector3, size: Vector3, base_col: Color, neon: Color, style: String = "") -> void:
 	var body := StaticBody3D.new()
 	var col := CollisionShape3D.new()
 	var box := BoxShape3D.new()
@@ -159,6 +161,7 @@ func _place_building(pos: Vector3, size: Vector3, base_col: Color, neon: Color) 
 	body.add_child(mesh)
 	body.position = pos
 	m.add_child(body)
+	_add_windows(pos, size, style)
 
 # Lay a simple 2-lane asphalt grid over a district with white dashed centre lines
 # and raised concrete sidewalks along the road edges. All visual (no collision):
@@ -327,6 +330,93 @@ func _causeway_rail(mid: Vector2, yaw: float, span: float, offset: float) -> voi
 	rail.position = Vector3(mid.x + perp.x * offset, 0.5, mid.y + perp.y * offset)
 	rail.rotation.y = yaw
 	m.add_child(rail)
+
+# ----------------------------------------------------------------- window lights
+# One emissive floor-strip per lit floor on each face — warm amber for
+# residential/beach/swamp, cool fluorescent for towers/industrial.
+# Strips share two cached materials so Godot can batch them in one draw call.
+func _get_win_mat(warm: bool) -> StandardMaterial3D:
+	var key := 0 if warm else 1
+	if _win_mats.has(key):
+		return _win_mats[key]
+	var mat := StandardMaterial3D.new()
+	var c: Color = Color(1.0, 0.82, 0.46) if warm else Color(0.76, 0.89, 1.0)
+	mat.albedo_color = c
+	mat.emission_enabled = true
+	mat.emission = c
+	mat.emission_energy_multiplier = 1.8
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_win_mats[key] = mat
+	return mat
+
+func _add_windows(bpos: Vector3, size: Vector3, style: String) -> void:
+	if m.headless or size.y < 5.0:
+		return
+	var warm: bool = style not in ["towers", "industrial"]
+	var mat: StandardMaterial3D = _get_win_mat(warm)
+	var floor_h := 3.2
+	var floors: int = int(size.y / floor_h)
+	# north / south faces — strip runs along x
+	for iy in range(floors):
+		var sy: float = floor_h * (iy + 0.6)
+		for fz in [-1, 1]:
+			if m.rng.randf() > 0.62:
+				continue
+			var mi := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(size.x * 0.80, 0.65, 0.04)
+			mi.mesh = bm
+			mi.material_override = mat
+			mi.position = Vector3(bpos.x, sy, bpos.z + fz * (size.z * 0.5 + 0.02))
+			m.add_child(mi)
+	# east / west faces — strip runs along z
+	for iy in range(floors):
+		var sy: float = floor_h * (iy + 0.6)
+		for fx in [-1, 1]:
+			if m.rng.randf() > 0.62:
+				continue
+			var mi := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(0.04, 0.65, size.z * 0.80)
+			mi.mesh = bm
+			mi.material_override = mat
+			mi.position = Vector3(bpos.x + fx * (size.x * 0.5 + 0.02), sy, bpos.z)
+			m.add_child(mi)
+
+# ----------------------------------------------------------------- parked cars
+func _build_parked_cars() -> void:
+	if m.mode == "selfcheck":
+		return
+	for d in m.DISTRICTS:
+		var cx: float = d["cx"]
+		var cz: float = d["cz"]
+		var hw: float = d["w"] * 0.5 - 22.0
+		var hd: float = d["d"] * 0.5 - 22.0
+		var count: int = int(d["density"] * 9)
+		for _i in range(count):
+			var px: float = cx + m.rng.randf_range(-hw, hw)
+			var pz: float = cz + m.rng.randf_range(-hd, hd)
+			var yaw: float = m.rng.randf_range(0.0, TAU)
+			_place_parked_car(Vector3(px, 0.0, pz), yaw)
+
+func _place_parked_car(pos: Vector3, yaw: float) -> void:
+	var body := StaticBody3D.new()
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(m.CAR_W, m.CAR_H, m.CAR_LEN)
+	col.shape = box
+	col.position.y = m.CAR_H * 0.5
+	body.add_child(col)
+	var mesh := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(m.CAR_W, m.CAR_H - 0.1, m.CAR_LEN)
+	var ci: int = m.civ_palette[m.rng.randi_range(0, m.civ_palette.size() - 1)]
+	mesh.material_override = m._mat(ci)
+	mesh.position.y = m.CAR_H * 0.5
+	body.add_child(mesh)
+	body.position = pos
+	body.rotation.y = yaw
+	m.add_child(body)
 
 # ----------------------------------------------------------------- atmosphere
 # Neon signs over downtown, a lighthouse beacon in Cayo Brava, cypress silhouettes

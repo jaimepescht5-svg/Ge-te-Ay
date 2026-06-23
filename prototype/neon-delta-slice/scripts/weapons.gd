@@ -46,6 +46,9 @@ func shoot() -> void:
 				m.traffic_sys.scatter_peds(hit_point)
 			elif m.heat_sys.is_pursuer(hit_collider):
 				m.heat_sys.hit_pursuer(hit_collider)
+			elif m.missions_sys.is_eliminate_target(hit_collider):
+				m.missions_sys.damage_target(hit_collider)
+				m.heat_sys.spawn_impact_spark(hit_point)
 			else:
 				m.heat_sys.spawn_impact_spark(hit_point)
 		m.traffic_sys.scatter_peds(hit_point)

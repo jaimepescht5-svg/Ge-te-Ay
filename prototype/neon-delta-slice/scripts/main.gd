@@ -281,6 +281,7 @@ func _ready() -> void:
 	hud_sys.build_minimap()
 	weapons_sys.build_ammo_crates()
 	geo_sys._build_atmosphere()
+	geo_sys._build_parked_cars()
 
 	bot = WaypointBot.new(WP)
 	in_car = true

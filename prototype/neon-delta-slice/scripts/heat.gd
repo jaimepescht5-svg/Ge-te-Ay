@@ -3,6 +3,7 @@ extends Node
 # light-bar strobing, explosions. Reads/writes main state via `m`.
 
 var m  # main scene node
+var helicopters: Array = []
 
 func setup(main) -> void:
 	m = main
@@ -21,6 +22,11 @@ func update_heat(delta: float) -> void:
 		for cop in m.pursuers:
 			cop.queue_free()
 		m.pursuers.clear()
+	# helicopter at heat >= 4
+	if m.heat <= 0.0:
+		_clear_helicopters()
+	elif m.heat >= 4.0 and helicopters.is_empty():
+		_spawn_helicopter()
 
 func spawn_pursuer() -> void:
 	var cop := VehicleBody3D.new()
@@ -94,7 +100,56 @@ func update_police_lights() -> void:
 		mr.emission = mag if t else cyan
 		mr.albedo_color = mr.emission
 
-func update_pursuers(_delta: float) -> void:
+func _spawn_helicopter() -> void:
+	var h := Node3D.new()
+	# fuselage
+	var body_mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(2.2, 0.9, 5.0)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.06, 0.06, 0.08)
+	body_mi.mesh = bm
+	body_mi.material_override = mat
+	h.add_child(body_mi)
+	# searchlight — points downward
+	var srch := OmniLight3D.new()
+	srch.light_color = Color(0.88, 0.93, 1.0)
+	srch.light_energy = 10.0
+	srch.omni_range = 60.0
+	srch.position = Vector3(0, -2.0, 0)
+	h.add_child(srch)
+	# nav strobe
+	var strobe := OmniLight3D.new()
+	strobe.light_color = Color(1.0, 0.08, 0.08)
+	strobe.light_energy = 4.0
+	strobe.omni_range = 18.0
+	strobe.position = Vector3(0, 0.6, -2.8)
+	h.add_child(strobe)
+	var tgt: Vector3 = m._active_pos()
+	h.position = tgt + Vector3(0, 80.0, 0)
+	m.add_child(h)
+	helicopters.append(h)
+
+func _clear_helicopters() -> void:
+	for h in helicopters:
+		if is_instance_valid(h):
+			h.queue_free()
+	helicopters.clear()
+
+func _update_helicopters(_delta: float) -> void:
+	if m.headless or helicopters.is_empty():
+		return
+	var tgt: Vector3 = m._active_pos() + Vector3(0, 55.0, 0)
+	for h in helicopters:
+		if not is_instance_valid(h):
+			continue
+		h.position = h.position.lerp(tgt, 0.012)
+		if h.get_child_count() > 2:
+			var strobe: OmniLight3D = h.get_child(2)
+			strobe.visible = fmod(m.sim_time * 2.5, 1.0) > 0.5
+
+func update_pursuers(delta: float) -> void:
+	_update_helicopters(delta)
 	var tgt: Vector3 = m._active_pos()
 	for cop: VehicleBody3D in m.pursuers:
 		var to := Vector2(tgt.x - cop.global_position.x, tgt.z - cop.global_position.z)
